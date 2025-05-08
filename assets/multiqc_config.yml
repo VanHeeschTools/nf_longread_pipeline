@@ -1,0 +1,57 @@
+# MultiQC configuration file for long-read RNA-seq pipeline
+
+# General settings
+title: "Long-read RNA-seq Analysis Report"
+subtitle: "Quality Control and Processing Results"
+intro_text: "This report summarizes the results of the long-read RNA-seq pipeline."
+
+# Module order
+module_order:
+    - nanoplot
+    - pychopper
+    - samtools
+    - gffcompare
+
+# Specific module configurations
+sp:
+    nanoplot:
+        fn: '*NanoStats.txt'
+    pychopper:
+        fn: '*pychopper_stats.tsv'
+    samtools/stats:
+        fn: '*.stats'
+    gffcompare:
+        contents: "# gffcompare"
+        fn: "*.stats"
+        num_lines: 2
+
+# File name cleaning
+extra_fn_clean_exts:
+    - '_mqc'
+    - '_pychopper_stats.tsv'
+    - '_mapping.stats'
+
+# Report section order
+report_section_order:
+    software_versions:
+        order: -1000
+
+# Plot customization
+plots_force_interactive: True  # Makes plots interactive by default
+
+# Table customization
+table_columns_visible:
+    NanoPlot:
+        mean_read_length: True
+        median_read_length: True
+        mean_qscore: True
+    Samtools:
+        reads_mapped: True
+        reads_mapped_percent: True
+
+# Output options
+output_fn_name: 'multiqc_report.html'
+data_dir_name: 'multiqc_data'
+
+# Performance options
+max_table_rows: 1000  # Limit large tables
