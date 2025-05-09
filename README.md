@@ -140,6 +140,7 @@ barcode,sample
 
 ## Output structure
 
+```
 results/
 ├── nanoplot/
 ├── pychopper/
@@ -148,3 +149,4 @@ results/
 ├── gffcompare/
 ├── salmon/
 └── multiqc/
+```
