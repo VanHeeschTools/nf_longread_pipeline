@@ -1,0 +1,58 @@
+# Nextflow work and output directories
+work/
+.output/
+.results/
+.nextflow*
+.nxf*
+.cache/
+
+# Execution reports and logs
+*.html
+*.dot
+*.log
+timeline.txt
+trace.txt
+report.html
+dag.png
+execution_report.html
+execution_timeline.html
+execution_trace.txt
+
+# Temporary and hidden files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python virtual environments
+venv/
+.env/
+*.egg-info/
+
+# Conda environments
+*.conda
+*.yaml.lock
+conda_envs/
+
+# Singularity/Apptainer images
+*.img
+*.sif
+
+# Docker artifacts
+*.tar
+*.img
+.docker/
+
+# VS Code settings
+.vscode/
+
+# Ignore data and test files if large or temporary
+data/
+test_data/
+test/
+results/
+
+# Custom Nextflow config overrides
+nextflow.config.local

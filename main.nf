@@ -53,3 +53,10 @@ workflow {
 
     LONGREAD(input_ch, sample_sheet_ch)
 }
+
+workflow.onComplete {
+    println "Workflow finished at: ${workflow.complete}"
+    println "Duration: ${workflow.duration}"
+    println "Succeeded: ${workflow.success}"
+    println "Work dir: ${workflow.workDir}"
+}

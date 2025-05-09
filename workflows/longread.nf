@@ -107,7 +107,7 @@ workflow LONGREAD {
     multiqc_files = Channel.empty()
     if (params.qc) multiqc_files = multiqc_files.mix(nanoplot_logs)
     if (params.qc) multiqc_files = multiqc_files.mix(pychopper_logs)
-    if (params.mapping) multiqc_files = multiqc_files.mix(mapping_logs)
+    if (params.assembly) multiqc_files = multiqc_files.mix(mapping_logs)
     if (params.assembly) multiqc_files = multiqc_files.mix(gffcompare_logs)
 
     // Convert to list and check if empty
