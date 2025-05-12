@@ -94,6 +94,7 @@ process FILTER_ANNOTATE {
 
     input:
     val reference_gtf   // Path to the input reference gtf file
+    val refseq_gtf     // Path to the refseq gtf file (optional)
     path gtf_novel      // Path to the merged gtf file
     path gtf_tracking   // Path to the tracking file created by the merge step
     val min_occurrence  // Val contatining the minimum occurence of transcripts for filtering (defaults to 1)
@@ -114,7 +115,8 @@ process FILTER_ANNOTATE {
     "${min_occurrence}" \
     "${min_tpm}" \
     "${output_prefix}_novel_filtered" \
-    "${projectDir}/bin/"
+    "${projectDir}/bin/" \
+    "${refseq_gtf}"
     """
 }
 
@@ -130,7 +132,7 @@ process TRANSCRIPTOME_FASTA {
     val prefix
 
     output:
-    file "*_transcriptome.fa", emit: fasta
+    path "*_transcriptome.fa", emit: fasta
     path "versions.yml", emit: versions
 
 

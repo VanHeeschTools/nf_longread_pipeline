@@ -25,9 +25,8 @@ workflow LONGREAD {
     // Define inputs from params
     // If sample sheet is provided, use it to update sample names
     if (sample_sheet_ch) {
-
         sample_map = validateSampleSheet(sample_sheet_ch)
-
+ 
         //Exit if sample_map is empty
         if (!sample_map) {
             log.error("ERROR: sample_map is null or empty! Check your sample sheet.")
@@ -46,7 +45,7 @@ workflow LONGREAD {
                         System.exit(1)
                     }
     }
-
+    
     reference = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
 
@@ -72,6 +71,8 @@ workflow LONGREAD {
         transcriptome_fasta = ASSEMBLY.out.fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
         gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
+        mapping_logs = Channel.empty()
+        gffcompare_logs = Channel.empty()
     } else {
         mapping_logs = Channel.empty()
         gffcompare_logs = Channel.empty()
@@ -132,11 +133,9 @@ workflow LONGREAD {
     // Merge the MultiQC outputs
     MULTIQC_REPORT = MULTIQC_REPORT.mix(MULTIQC.out.report)
 
-    multiqc_files.view()
-
     emit:
     full_length_reads = params.qc ? QC.out.full_length_reads : Channel.empty()
     merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome : Channel.empty()
     expression = params.expression ? EXPRESSION.out.salmon_quant : Channel.empty()
-    multiqc_report = MULTIQC_REPORT
+    multiqc_report = MULTIQC_REPORT 
 }

@@ -5,8 +5,6 @@ process MINIMAP2 {
     label 'minimap2'
     label 'process_high'
 
-    container 'quay.io/biocontainers/minimap2:2.28--h577a1d6_4'
-
     input:
     tuple val(sample), path(reads)
     path reference
@@ -18,6 +16,9 @@ process MINIMAP2 {
 
     script:
     """
+    echo "Nextflow requested CPUs: ${task.cpus}"
+    echo "Nextflow requested memory: ${task.memory}"
+
     minimap2 \
         -ax splice \
         -t $task.cpus \

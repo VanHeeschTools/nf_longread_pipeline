@@ -45,16 +45,21 @@ workflow ASSEMBLY {
     // Filter anotation 
     // TODO require GTF
     FILTER_ANNOTATE(annotation,
+                    params.refseq_gtf ?: "",
                     MERGE_GTFS.out.merged_gtf,
                     MERGE_GTFS.out.tracking, 
                     params.min_occurrence,
                     params.min_tpm,
                     params.output_prefix)
 
-
     TRANSCRIPTOME_FASTA(FILTER_ANNOTATE.out.filtered_gtf,
                         reference,
                         params.output_prefix)
+
+    FILTER_ANNOTATE.out.filtered_gtf.view()
+    TRANSCRIPTOME_FASTA.out.fasta.view()
+    PROCESS_ALIGNMENT.out.stats.collect().view()
+    GFFCOMPARE.out.stats.collect().view()
 
     emit:
     transcriptome = FILTER_ANNOTATE.out.filtered_gtf
