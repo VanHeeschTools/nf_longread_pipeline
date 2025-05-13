@@ -4,6 +4,7 @@ process nanoplot {
 
     input:
     tuple val(sample), path(reads)
+    val extra_opts
 
     output:
     path "${sample}_nanoplot"
@@ -21,10 +22,10 @@ process nanoplot {
         -p ${sample}_ \
         -t ${task.cpus} \
         --title "$sample" \
-        --color darkseagreen \
-        --minlength 50 \
         --N50 \
-        --store
+        --raw \
+        --tsv_stats \
+        ${extra_opts}
 
     echo "NanoPlot completed for sample: $sample"
     """

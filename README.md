@@ -2,32 +2,33 @@
 
 A modular and reproducible Nextflow pipeline designed for processing long-read sequencing data from Oxford Nanopore. The pipeline encompasses quality control, mapping, assembly, and quantification.
 
-##  Requirements
+## Requirements
 
 * Nextflow 23.04.1 or later
 * Java 17 or later (up to 24)
 
 ### Containerised software
-* NanoPlot 
+
+* NanoPlot
 * Pychopper
-* Minimap2 
+* Minimap2
 * Samtools
 * Stringtie (3.0 recommended)
 * Gffcompare
 * Salmon
 * R (tested on 4.1.2), including the following packages:
-  *   tidyverse
-  *   GenomicRanges
-  *   rtracklayer
-  *   data.table
-  *   dplyr
-  *   tidyr
-  
-Note: The pipeline is developed and tested with one singularity containers for each process. 
+  * tidyverse
+  * GenomicRanges
+  * rtracklayer
+  * data.table
+  * dplyr
+  * tidyr
+
+Note: The pipeline is developed and tested with one singularity containers for each process.
 
 ## Usage
 
-The pipeline can be run with a command as follows: 
+The pipeline can be run with a command as follows:
 
 ```bash
 nextflow run nf_longread_pipeline/main.nf \
@@ -40,7 +41,7 @@ nextflow run nf_longread_pipeline/main.nf \
     -profile slurm
 ```
 
-Or by specifying a config file (see [link] as example): 
+Or by specifying a config file (see [link] as example):
 
 ```bash
 nextflow run nf_longread_pipeline/mains.nf \
@@ -52,76 +53,91 @@ nextflow run nf_longread_pipeline/mains.nf \
 
 ### Input/output files
 
-| Parameter      | Description                                                     |
-| :--------------- | ----------------------------------------------------------------- |
-| --input        | **(Required)** Path to directory with raw FASTQ files (accepts a subdirectories one level deep)          |
-| --sample_sheet | **(Required)** CSV file with sample metadata (see format below) |
-| --outdir |  **(Optional)** Path to output directory, defaults to `results` |
+
+| Parameter      | Description                                                                                     |
+| :--------------- | ------------------------------------------------------------------------------------------------- |
+| --input        | **(Required)** Path to directory with raw FASTQ files (accepts a subdirectories one level deep) |
+| --sample_sheet | **(Required)** CSV file with sample metadata (see format below)                                 |
+| --outdir       | **(Optional)** Path to output directory, defaults to `results`                                  |
 
 ### Reference files
 
-| Parameter      | Description                                                         |
-| :--------------- | ----------------------------------------------------------------- |
-| --reference_genome        | **(Required)** FASTA file with reference genome          |
-| --reference_gtf | **(Required)** GTF file with reference annotations                 |
-| --reference_transcriptome | **(Optional)** FASTA file with reference transcriptome   |
 
+| Parameter                 | Description                                            |
+| :-------------------------- | -------------------------------------------------------- |
+| --reference_genome        | **(Required)** FASTA file with reference genome        |
+| --reference_gtf           | **(Required)** GTF file with reference annotations     |
+| --reference_transcriptome | **(Optional)** FASTA file with reference transcriptome |
 
 ### Module Toggles
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |
-| --qc | Enable quality control (NanoPlot, Pychopper) | true |
-| --assembly | Enable transcriptome assembly | true |
-| --expression | Enable quantification (Salmon) | true |
+
+| Parameter    | Description                                  | Default |
+| :------------- | ---------------------------------------------- | --------- |
+| --qc         | Enable quality control (NanoPlot, Pychopper) | true    |
+| --assembly   | Enable transcriptome assembly                | true    |
+| --expression | Enable quantification (Salmon)               | true    |
 
 ### Optional Parameters
 
+#### Nanoplot
+
+
+| Parameter             | Description                                                                         | Default |
+| :---------------------- | ------------------------------------------------------------------------------------- | --------- |
+| --nanoplot_extra_opts | Additional opts. See [Nanoplot documentation](https://github.com/wdecoster/NanoPlot) | ""      |
+
 #### Pychopper
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |
-| --cdna_kit | See Pychopper docs for accepted kits | PCB114 |
-| --custom_primers_file | FASTA file with custom primers | null |
-| --pychopper_backend | edlib or phmm | edlib |
-| --pychopper_extra_opts | Additional opts | "" |
-| --store_full_length_reads | Save full-length reads after trimming | true |
+
+| Parameter                 | Description                                                                             | Default |
+| :-------------------------- | ----------------------------------------------------------------------------------------- | --------- |
+| --cdna_kit                | See Pychopper docs for accepted kits                                                    | PCB114  |
+| --custom_primers_file     | FASTA file with custom primers                                                          | null    |
+| --pychopper_backend       | edlib or phmm                                                                           | edlib   |
+| --pychopper_extra_opts    | Additional opts. See [Pychopper documentation](https://github.com/epi2me-labs/pychopper) | ""      |
+| --store_full_length_reads | Save full-length reads after trimming                                                   | true    |
 
 #### Minimap2
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |
-| --minimap_extra_opts | Minimap genome alignment opts (for assembly) | "" |
-| --minimap_index_extra_opts | Minimap indexing opts |  "" |
-| --minimap_transcripts_extra_opts | Minimap transcriptome alignment opts (for quantification) | "" |
+
+| Parameter                        | Description                                                                                      | Default |
+| :--------------------------------- | -------------------------------------------------------------------------------------------------- | --------- |
+| --minimap_extra_opts             | Minimap genome alignment opts (for assembly). See [Minimap docs](https://github.com/lh3/minimap2) | ""      |
+| --minimap_index_extra_opts       | Minimap indexing opts.                                                                           | ""      |
+| --minimap_transcripts_extra_opts | Minimap transcriptome alignment opts (for quantification)                                        | ""      |
 
 #### StringTie
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |      
-| --stringtie_extra_opts | Additional StringTie options | "" | 
+
+| Parameter              | Description                  | Default |
+| :----------------------- | ------------------------------ | --------- |
+| --stringtie_extra_opts | Additional StringTie options | ""      |
 
 #### Filter Annotation
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |
-| --min_tpm | Min TPM to retain transcripts | 0.1 |
-| --min_occurrence | Min number of samples present | 1 |
+
+| Parameter        | Description                   | Default |
+| :----------------- | ------------------------------- | --------- |
+| --min_tpm        | Min TPM to retain transcripts | 0.1     |
+| --min_occurrence | Min number of samples present | 1       |
 
 #### Salmon
 
-| Parameter | Description | Default |
-| :-------- | ----------- | ------- |
+
+| Parameter           | Description                           | Default |
+| :-------------------- | --------------------------------------- | --------- |
 | --salmon_extra_opts | Salmon-specific flags (e.g. --gcBias) | "--ont" |
 
 ## Sample sheet format
 
 Sampesheet is a CSV file with the following columns:
 
-| Column | Description |
-| :----- | ----------- |
-| barcode | Barcode id |
-| sample | Sample name |
+
+| Column  | Description |
+| :-------- | ------------- |
+| barcode | Barcode id  |
+| sample  | Sample name |
 
 ```csv
 barcode,sample
@@ -129,6 +145,7 @@ BC1,sample1
 BC2,sample2
 BC3,sample3
 ```
+
 The barcode field can be left empty for singleplex experiments.
 
 ```csv

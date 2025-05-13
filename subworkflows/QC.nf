@@ -6,7 +6,8 @@ workflow QC {
     reads // Input reads from fastq
 
     main:
-    nanoplot(reads)
+    nanoplot(reads,
+            params.nanoplot_extra_opts)
 
     //Check if pychopper custom primers are provided
     //Use the kit if no custom primers are provided
