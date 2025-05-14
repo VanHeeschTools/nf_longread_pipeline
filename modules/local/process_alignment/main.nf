@@ -11,6 +11,7 @@ process PROCESS_ALIGNMENT {
     path("*_mapping.stats"), emit: stats
     path "versions.yml", emit: versions
 
+    //TODO filter unmapped reads
     script:
     """
     samtools sort -@ $task.cpus -o ${sample}.bam $sam
@@ -25,6 +26,8 @@ process PROCESS_ALIGNMENT {
     END_VERSIONS
     """
 }
+
+//TODO add process generate alignment stats with sekqit
 
 process PROCESS_ALIGNMENT_TRANSCRIPTOME {
     label 'samtools'
