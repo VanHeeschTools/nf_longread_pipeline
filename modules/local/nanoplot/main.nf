@@ -15,7 +15,7 @@ process nanoplot {
     //concatenate list of files
     def input_string = "${input_files.join(' ')}"
     //identify format of input files
-    def input_format = reads[0].getExtension() == "bam" ? "--bam" : "--fastq_rich"
+    def input_format = reads[0].getExtension() == "bam" ? "--bam" : "--fastq_minimal"
     """
     NanoPlot $input_format $reads \
         -o ${sample}_nanoplot \
