@@ -20,7 +20,7 @@ process nanoplot {
     NanoPlot $input_format $reads \
         -o ${sample}_nanoplot \
         -p ${sample}_ \
-        -t ${task.cpus} \
+        -t 1 \
         --title "$sample" \
         --N50 \
         --raw \
