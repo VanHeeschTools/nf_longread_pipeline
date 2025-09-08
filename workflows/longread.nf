@@ -56,26 +56,34 @@ workflow LONGREAD {
         } else {
             QC(input_ch, params.direct_rna)
         }
+        // Collect logs for MultiQC
         nanoplot_logs = QC.out.nanoplot_logs.collect()
         pychopper_logs = QC.out.pychopper_logs.collect()
+        //  Collect full_length_reads for downstream steps
         full_length_reads = QC.out.full_length_reads
     } else {
-        log.warn "QC step skipped. Ensure full length reads are in the correct location: ${params.outdir}/pychopper/full_length_reads."
-        log.warn "If your input reads are already full-length reads, you can skip pychopper by providing `--direct-rna` in the config."
+        // If QC is skipped, set empty channels for logs
         nanoplot_logs = Channel.empty()
         pychopper_logs = Channel.empty()
 
-        // Use Channel.fromPath to collect files
-        full_length_reads = Channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
-            .ifEmpty {
-                error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
-            }    .ifEmpty {
-        error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
-    }
-    .map { file ->
-        def sample = file.getBaseName().replaceFirst(/_full_length_reads$/, '') // adjust this regex if needed
-        tuple(sample, file)
-    }
+        if (params.direct_rna) {
+            // Use provided reads as full_length_reads
+            full_length_reads = input_ch
+        } else {
+            // If not running QC and not direct RNA, assume pychopper has been run externally
+            // and full_length_reads are in the expected directory
+            // Use Channel.fromPath to collect files
+            full_length_reads = Channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
+                // Check if channel is empty and provide error message
+                .ifEmpty {
+                     error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
+                }
+                // Mimic tuple(sample, file) structure from input_ch
+                // Replace _full_length_reads and extensions from filename to get sample name
+                .map { file ->
+                    def sample = file.getBaseName().replaceFirst(/_full_length_reads(\.fastq\.gz|\.fq\.gz|\.fastq|\.fq)?$/, '')
+                    tuple(sample, file)
+                }
     }
 
     if (params.assembly) {
