@@ -78,6 +78,8 @@ nextflow run nf_longread_pipeline/mains.nf \
 | --assembly   | Enable transcriptome assembly                | true    |
 | --expression | Enable quantification (Salmon)               | true    |
 
+Note: QC false will assume pychopper has run previously and full length reads are in the expected location `pychopper/full_length_reads`. Provide `--direct_rna` option (see below) the samplesheet already contains the path to full length oriented reads.
+
 ### Optional Parameters
 
 #### Nanoplot
