@@ -8,7 +8,7 @@ process SALMON {
         path ref_transcriptome
         val extra_opts
     output:
-         tuple val(sample), path("${sample}"), emit: quant
+         tuple val(sample), path("${sample}/quant.sf"), emit: quant
          path "versions.yml", emit: versions
          
     """

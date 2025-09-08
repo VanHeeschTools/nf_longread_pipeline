@@ -69,16 +69,21 @@ filter_tpm_occurrence <- function(gtf_df_tracking,
                                  min_tpm = 1) {
   # Identify TPM columns
   tpm_cols <- grep("^TPM_q", colnames(gtf_df_tracking), value = TRUE)
-  
-  # Extract TPM matrix and replace NA with 0
-  tpm_matrix <- as.matrix(gtf_df_tracking[, ..tpm_cols, drop = FALSE])
+  if (length(tpm_cols) == 0) {
+    # No TPM columns, return all FALSE
+    return(rep(FALSE, nrow(gtf_df_tracking)))
+  }
+  tpm_matrix <- as.matrix(gtf_df_tracking[, tpm_cols, drop = FALSE])
   tpm_matrix[is.na(tpm_matrix)] <- 0
+  # If only one sample, ensure matrix is correct shape
+  if (is.null(dim(tpm_matrix))) {
+    tpm_matrix <- matrix(tpm_matrix, ncol = 1)
+  }
   tpm_matrix <- apply(tpm_matrix, 2, as.numeric)
-  
-  # Count number of samples where TPM >= min_tpm
+  if (is.null(dim(tpm_matrix))) {
+    tpm_matrix <- matrix(tpm_matrix, ncol = 1)
+  }
   tpm_count <- rowSums(tpm_matrix >= min_tpm)
-  
-  # Return logical vector indicating which transcripts meet the occurrence threshold
   to_keep <- tpm_count >= min_occurrence
   return(to_keep)
 }
@@ -318,6 +323,43 @@ rename_stringtie_transcripts <- function(gtf_novel_df) {
   })))
 }
 
+#' Parse specific fields from a tracking file row
+#'
+#' This function extracts a field from a string column (or row entry) in a
+#' tracking file where values are pipe (`|`) delimited. It is useful for
+#' parsing outputs from transcriptome assembly tracking files (e.g. `gffcompare`)
+#' where each row contains information about multiple transcripts or features.
+#'
+#' @param row A character vector of one or more entries (e.g. a row of a data frame).
+#' Each entry is expected to be either:
+#' - `"-"` indicating no value,
+#' - `NA`, or
+#' - a pipe-delimited string (e.g. `"TCONS_000001|XLOC_000001|GeneID"`).
+#'
+#' @param field_from_last An integer specifying which field (counting backwards
+#' from the end of the split string) to extract.  
+#' For example, `field_from_last = 1` extracts the last field,  
+#' `field_from_last = 2` extracts the second-to-last, etc.
+#'
+#' @return A character vector of the same length as `row`, where each element is
+#' either the extracted field (character), or `NA` if the entry was `"-"`, `NA`,
+#' or did not contain enough fields.
+#'
+#' @export
+parse_tracking_file_row <- function(row, field_from_last = 2) {
+  sapply(row, function(x) {
+    if (x == "-" || is.na(x)) {
+      return(NA)
+    }
+    parts <- unlist(strsplit(x, "\\|"))
+    if (length(parts) >= 3) {
+      return(parts[length(parts) - field_from_last])
+    } else {
+      return(NA)
+    }
+  })
+}
+
 #' Read and parse a tracking file with transcript annotations and TPMs
 #'
 #' This function reads a tracking file output (e.g., from StringTie), extracts transcript and gene
@@ -355,32 +397,29 @@ read_tracking_file <- function(tracking_file) {
   
   # Extract the first 4 columns
   df_cleaned <- df[, 1:3] %>%
-    tidyr::separate(V3,
-                    into = c("ref_gene_id_annotated", "ref_transcript_id_annotated"),
-                    sep = "\\|"
-    )
+                  tidyr::separate(V3, into = c("ref_gene_id_annotated", "ref_transcript_id_annotated"),
+                  sep = "\\|",
+                  extra = "merge",
+                  fill = "right")
   colnames(df_cleaned) <- c("TCONS", "xloc", "ref_gene_id", "ref_transcript_id")
   
   # Extract TPMs from the remaining columns
-  df_tpm <- df[, 5:ncol(df)] %>%
-    apply(1, function(row) {
-      sapply(row, function(x) {
-        if (x == "-" || is.na(x)) {
-          return(NA)
-        }
-        parts <- unlist(strsplit(x, "\\|"))
-        if (length(parts) >= 3) {
-          return(parts[length(parts) - 2])
-        } else {
-          return(NA)
-        }
-      })
-    }) %>%
-    t() %>%
-    as.data.frame()
-  
-  # Add sample names (q1, q2, ...) as column names for the TPMs
-  colnames(df_tpm) <- paste0("TPM_q", 1:ncol(df_tpm))
+  if(ncol(df) > 5) {
+    # Parse expression from q1,q2... fields
+    df_tpm <- df[, 5:ncol(df)] %>%
+      apply(1, parse_tracking_file_row) %>%
+      t() %>%
+      as.data.frame()
+    
+      # Add sample names (q1, q2, ...) as column names for the TPMs
+      colnames(df_tpm) <- paste0("TPM_q", 1:ncol(df_tpm))
+      
+  } else {
+    # Handle singe sample tracking files
+    values <-  parse_tracking_file_row(df[,5])
+    df_tpm <- data.frame(TPM_q1 = values)
+  }
+
   
   # Combine the first 4 columns and the extracted TPMs into a final data frame
   final_df <- cbind(df_cleaned, df_tpm)
@@ -406,14 +445,17 @@ merge_tracking_info <- function(gtf_df, tracking_df) {
 #' @return The input data.table with NA values filled.
 fill_metadata_from_transcripts <- function(gtf_df, fields_to_fill) {
   data.table::setDT(gtf_df)
-  gtf_df[, (fields_to_fill) := {
+  # Only keep fields that exist in gtf_df
+  fields_present <- intersect(fields_to_fill, colnames(gtf_df))
+  if (length(fields_present) == 0) return(gtf_df)
+  gtf_df[, (fields_present) := {
     w <- which(type == "transcript")
     if (length(w) == 0) return(.SD)
     lapply(.SD, function(x) {
       x[is.na(x)] <- x[w]
       x
     })
-  }, by = transcript_id, .SDcols = fields_to_fill]
+  }, by = transcript_id, .SDcols = fields_present]
   return(gtf_df)
 }
 

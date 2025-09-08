@@ -47,7 +47,7 @@ process MERGE_GTFS {
     val output_prefix
 
     output:
-    path "*combined.gtf", emit: merged_gtf
+    path "*.gtf", emit: merged_gtf
     path "*.stats", emit: stats
     path "*.tracking", emit: tracking
     path "versions.yml", emit: versions
@@ -91,6 +91,7 @@ process PARSE_TRACKING {
 // Define process for transcript filtering and annotation
 process FILTER_ANNOTATE {
     label "merge_gtfs"
+    label "process_medium"
 
     input:
     val reference_gtf   // Path to the input reference gtf file

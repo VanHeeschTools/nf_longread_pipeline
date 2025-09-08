@@ -50,24 +50,36 @@ workflow LONGREAD {
     annotation = file(params.reference_gtf, checkIfExists: true)
 
     if (params.qc) {
-        QC(input_ch)
+        if (params.direct_rna) {
+            // Skip PyChopper, treat input as full_length_reads
+            QC(input_ch, params.direct_rna)
+        } else {
+            QC(input_ch, params.direct_rna)
+        }
         nanoplot_logs = QC.out.nanoplot_logs.collect()
         pychopper_logs = QC.out.pychopper_logs.collect()
+        full_length_reads = QC.out.full_length_reads
     } else {
         log.warn "QC step skipped. Ensure full length reads are in the correct location: ${params.outdir}/pychopper/full_length_reads."
+        log.warn "If your input reads are already full-length reads, you can skip pychopper by providing `--direct-rna` in the config."
         nanoplot_logs = Channel.empty()
-        pychopper_logs =  Channel.empty()
+        pychopper_logs = Channel.empty()
 
-        // Check for full length reads in the expected output directory
-        if (!file("${params.outdir}/pychopper/full_length_reads").exists()) {
-            error "Full length reads directory not found. Please run QC step or provide full length reads reads."
-        } else {
-            full_length_reads = file("${params.outdir}/pychopper/full_length_reads")
-        }
+        // Use Channel.fromPath to collect files
+        full_length_reads = Channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
+            .ifEmpty {
+                error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
+            }    .ifEmpty {
+        error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
+    }
+    .map { file ->
+        def sample = file.getBaseName().replaceFirst(/_full_length_reads$/, '') // adjust this regex if needed
+        tuple(sample, file)
+    }
     }
 
     if (params.assembly) {
-        ASSEMBLY(QC.out.full_length_reads, reference, annotation)
+        ASSEMBLY(full_length_reads, reference, annotation)
         transcriptome_fasta = ASSEMBLY.out.fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
         gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
@@ -90,7 +102,7 @@ workflow LONGREAD {
     }
 
     if (params.expression) {    
-        EXPRESSION(QC.out.full_length_reads, transcriptome_fasta)
+        EXPRESSION(full_length_reads, transcriptome_fasta)
     } else {
         log.warn "Expression analysis skipped."
         salmon_logs = Channel.empty()

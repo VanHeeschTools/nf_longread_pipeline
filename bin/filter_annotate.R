@@ -92,7 +92,10 @@ filterGTF <- function( novel_gtf_path, gtf_ref_path, tracking_file, min_occurren
 
   # Load tracking file and merge information with novel GTF data frame
   tracking <- read_tracking_file(tracking_file)
-  novel_gtf_df <- merge_tracking_info(novel_gtf_df, tracking)
+  #Temporary fix to deal with tracking files from 1 sample (transcript_ids do not match tracking file)
+  if (ncol(tracking) > 5) {
+    novel_gtf_df <- merge_tracking_info(novel_gtf_df, tracking)
+  }
   novel_gtf_df <- fill_metadata_from_transcripts(novel_gtf_df, fields_to_fill = c(
     "gene_name", "oId", "cmp_ref", "class_code", "cmp_ref_gene", "ref_gene_id", "num_samples"
   ))
@@ -112,14 +115,17 @@ filterGTF <- function( novel_gtf_path, gtf_ref_path, tracking_file, min_occurren
   # If min_tpm=0 the number of samples from tracking file will be taken
   if(min_tpm > 0) {
     occurrence_mask <- filter_tpm_occurrence(novel_gtf_df, min_occurrence = min_occurrence , min_tpm = min_tpm)
-  } else {
+    transcripts_keep <- novel_gtf_df[occurrence_mask, ]$transcript_id
+    novel_gtf_df <- novel_gtf_df[occurrence_mask, ]
+  } else if(min_occurrence > 0) {
+    print("Filtering occurrence ...")
     occurrence_mask <- as.numeric(novel_gtf_df$num_samples) > min_occurrence
+    transcripts_keep <- novel_gtf_df[occurrence_mask, ]$transcript_id
+    novel_gtf_df <- novel_gtf_df[occurrence_mask, ]
+  } else {
+    transcripts_keep <-  length(unique(novel_gtf_df$transcript_id))
   }
   
-  transcripts_keep <- novel_gtf_df[occurrence_mask, ]$transcript_id
-
-  novel_gtf_df <- novel_gtf_df[occurrence_mask, ]
-
   # LOGGING: Store transcripts failing occurrence threshold
   log_occurrence <- log_start - log_monoexonic - length(unique(transcripts_keep))
 
@@ -184,7 +190,7 @@ filterGTF <- function( novel_gtf_path, gtf_ref_path, tracking_file, min_occurren
   if(!is.null(gtf_refseq_basename) && gtf_refseq_basename != "") {
     base_columns <- c(base_columns, "xr_overlap", "nr_overlap")
   }
-  
+  base_columns <- intersect(base_columns, colnames(novel_gtf_df))
   # Subset the GTF
   merged_gtf <- as.data.frame(novel_gtf_df)[, base_columns] %>% 
                 bind_rows(gtf_ref_df)
