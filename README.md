@@ -92,6 +92,7 @@ nextflow run nf_longread_pipeline/mains.nf \
 
 | Parameter                 | Description                                                                             | Default |
 | :-------------------------- | ----------------------------------------------------------------------------------------- | --------- |
+| --direct_rna                | Treat input reads as oriented & full-length (Pychopper will not run).                                                    | PCB114  |
 | --cdna_kit                | See Pychopper docs for accepted kits                                                    | PCB114  |
 | --custom_primers_file     | FASTA file with custom primers                                                          | null    |
 | --pychopper_backend       | edlib or phmm                                                                           | edlib   |
