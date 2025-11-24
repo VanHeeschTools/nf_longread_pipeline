@@ -73,7 +73,11 @@ filter_tpm_occurrence <- function(gtf_df_tracking,
     # No TPM columns, return all FALSE
     return(rep(FALSE, nrow(gtf_df_tracking)))
   }
-  tpm_matrix <- as.matrix(gtf_df_tracking[, tpm_cols, drop = FALSE])
+  if (inherits(gtf_df_tracking, "data.table")) {
+      tpm_matrix <- as.matrix(gtf_df_tracking[, ..tpm_cols])
+  } else {
+      tpm_matrix <- as.matrix(gtf_df_tracking[, tpm_cols, drop = FALSE])
+  }
   tpm_matrix[is.na(tpm_matrix)] <- 0
   # If only one sample, ensure matrix is correct shape
   if (is.null(dim(tpm_matrix))) {

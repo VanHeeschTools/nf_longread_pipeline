@@ -84,6 +84,7 @@ workflow LONGREAD {
                     def sample = file.getBaseName().replaceFirst(/_full_length_reads(\.fastq\.gz|\.fq\.gz|\.fastq|\.fq)?$/, '')
                     tuple(sample, file)
                 }
+        }
     }
 
     if (params.assembly) {
