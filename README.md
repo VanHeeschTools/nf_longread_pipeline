@@ -2,6 +2,7 @@
 
 A modular and reproducible Nextflow pipeline designed for processing long-read sequencing data from Oxford Nanopore. The pipeline encompasses quality control, mapping, assembly, and quantification.
 
+
 ## Requirements
 
 * Nextflow 23.04.1 or later
