@@ -4,6 +4,7 @@ include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
 include { VERSIONS } from '../modules/local/versions/main'
 include { MULTIQC } from '../modules/local/multiqc/main'
 
+
 // Function to validate samplesheet inputs (can be moved to a separate module)
 def validateSampleSheet(sample_sheet) {
     return sample_sheet
@@ -15,6 +16,7 @@ def validateSampleSheet(sample_sheet) {
             [row.barcode ?: row.sample, row.sample ?: row.barcode]
         }
 }
+
 
 def checkInputVar(input_dir) {
     if (file(input_dir).isDirectory()) {
@@ -28,26 +30,27 @@ def checkInputVar(input_dir) {
                     //return tuple(sample, file)
                     [[id:"${barcode}"], [barcode:"${barcode}"], file]
                 }
-                /*.groupTuple()
-                .map { sample, files -> 
-                    if (files.isEmpty()) {
-                        error "No FASTQ/BAM files found for sample: ${sample}"
-                    }
-                    return tuple(sample, files)
-                }
-                .ifEmpty { error "No input files found in directory: ${params.input}" }
-*/
     } else {
         error "Input not specified. Please provide --input parameter."
     }
 }
 
-workflow LONGREAD {
-    take:
-    input_ch
-    sample_sheet_ch
 
+workflow LONGREAD {
     main:
+    // Sample sheet handling with error check
+    if (params.sample_sheet) {
+        if (!file(params.sample_sheet).exists()) {
+            error "Sample sheet file does not exist: ${params.sample_sheet}"
+        }
+        log.info "Using sample sheet: ${params.sample_sheet}"
+        sample_sheet_ch = channel.fromPath(params.sample_sheet)
+    } else {
+        log.warn "No sample sheet provided, continuing without it."
+        sample_sheet_ch = channel.empty()
+    }
+
+
     // Define inputs from params
     // If sample sheet is provided, use it to update sample names
     if (sample_sheet_ch) {
@@ -58,36 +61,16 @@ workflow LONGREAD {
             log.error("ERROR: sample_map is null or empty! Check your sample sheet.")
             System.exit(1)
         }
-
-        input_ch = input_ch.join(sample_map, by: 0)
-                    .map { barcode, file, sample -> tuple(sample, file) }
-                    .ifEmpty { 
-                        log.error("""
-                        ERROR: input_ch is empty!
-                        - Check the structure of your input directory.
-                        - Parent directories must match the sample names in the sample sheet.
-                        - Check your sample sheet for misspelled sample names.
-                        """.stripIndent())
-                        System.exit(1)
-                    }
     }
+
     
     reference = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
 
     ch_test = checkInputVar(params.input)
-    //ch_test.view()
-    //sample_map.view()
-
     sample_map = sample_map.map{ sample, barcode -> tuple( [id:"${sample}"], [sample:"${sample}"], [barcode:"${barcode}"])}
-    //sample_map.view()
-    //ch_test.groupTuple(by: [0,1]).view()
     ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
-    //ch_test_comb.view()
-    //input_ch.view()
-
     ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
-    //ch_input2.view()
 
 
 
