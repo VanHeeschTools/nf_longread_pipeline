@@ -9,7 +9,7 @@ workflow {
         if (file(params.input).isDirectory()) {
             log.info "Processing directory: ${params.input}"
             
-            input_ch = Channel
+            input_ch = channel
                 .fromPath("${params.input}/**/*.{fastq,fastq.gz,bam}")
                 .map { file -> 
                     def parent = file.parent.name
@@ -25,7 +25,7 @@ workflow {
                 }
                 .ifEmpty { error "No input files found in directory: ${params.input}" }
         } else {            
-            input_ch = Channel
+            input_ch = channel
                 .fromPath(params.input)
                 .map { file -> 
                     if (!file.exists()) {
@@ -45,10 +45,10 @@ workflow {
             error "Sample sheet file does not exist: ${params.sample_sheet}"
         }
         log.info "Using sample sheet: ${params.sample_sheet}"
-        sample_sheet_ch = Channel.fromPath(params.sample_sheet)
+        sample_sheet_ch = channel.fromPath(params.sample_sheet)
     } else {
         log.warn "No sample sheet provided, continuing without it."
-        sample_sheet_ch = Channel.empty()
+        sample_sheet_ch = channel.empty()
     }
 
     LONGREAD(input_ch, sample_sheet_ch)

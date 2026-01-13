@@ -16,6 +16,32 @@ def validateSampleSheet(sample_sheet) {
         }
 }
 
+def checkInputVar(input_dir) {
+    if (file(input_dir).isDirectory()) {
+        log.info "Processing directory: ${params.input}"
+        def input_ch2 = channel
+                .fromPath("${params.input}/**/*.{fastq,fastq.gz,bam}")
+                .ifEmpty { error "No input files found in directory: ${params.input}" }
+                .map { file -> 
+                    def parent = file.parent.name
+                    def barcode = params.barcode ?: (parent == params.input.tokenize('/')[-1] ? 'barcode' : parent)
+                    //return tuple(sample, file)
+                    [[id:"${barcode}"], [barcode:"${barcode}"], file]
+                }
+                /*.groupTuple()
+                .map { sample, files -> 
+                    if (files.isEmpty()) {
+                        error "No FASTQ/BAM files found for sample: ${sample}"
+                    }
+                    return tuple(sample, files)
+                }
+                .ifEmpty { error "No input files found in directory: ${params.input}" }
+*/
+    } else {
+        error "Input not specified. Please provide --input parameter."
+    }
+}
+
 workflow LONGREAD {
     take:
     input_ch
@@ -49,12 +75,28 @@ workflow LONGREAD {
     reference = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
 
+    ch_test = checkInputVar(params.input)
+    //ch_test.view()
+    //sample_map.view()
+
+    sample_map = sample_map.map{ sample, barcode -> tuple( [id:"${sample}"], [sample:"${sample}"], [barcode:"${barcode}"])}
+    //sample_map.view()
+    //ch_test.groupTuple(by: [0,1]).view()
+    ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
+    //ch_test_comb.view()
+    //input_ch.view()
+
+    ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
+    //ch_input2.view()
+
+
+
     if (params.qc) {
         if (params.direct_rna) {
             // Skip PyChopper, treat input as full_length_reads
-            QC(input_ch, params.direct_rna)
+            QC(ch_input2, params.direct_rna)
         } else {
-            QC(input_ch, params.direct_rna)
+            QC(ch_input2, params.direct_rna)
         }
         // Collect logs for MultiQC
         nanoplot_logs = QC.out.nanoplot_logs.collect()
@@ -63,17 +105,17 @@ workflow LONGREAD {
         full_length_reads = QC.out.full_length_reads
     } else {
         // If QC is skipped, set empty channels for logs
-        nanoplot_logs = Channel.empty()
-        pychopper_logs = Channel.empty()
+        nanoplot_logs = channel.empty()
+        pychopper_logs = channel.empty()
 
         if (params.direct_rna) {
             // Use provided reads as full_length_reads
-            full_length_reads = input_ch
+            full_length_reads = ch_input2
         } else {
             // If not running QC and not direct RNA, assume pychopper has been run externally
             // and full_length_reads are in the expected directory
             // Use Channel.fromPath to collect files
-            full_length_reads = Channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
+            full_length_reads = channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
                 // Check if channel is empty and provide error message
                 .ifEmpty {
                      error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
@@ -92,11 +134,11 @@ workflow LONGREAD {
         transcriptome_fasta = ASSEMBLY.out.fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
         gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
-        mapping_logs = Channel.empty()
-        gffcompare_logs = Channel.empty()
+        mapping_logs = channel.empty()
+        gffcompare_logs = channel.empty()
     } else {
-        mapping_logs = Channel.empty()
-        gffcompare_logs = Channel.empty()
+        mapping_logs = channel.empty()
+        gffcompare_logs = channel.empty()
         log.warn "Assembly step skipped."
 
         //Assign transcriptome fasta if expression is true
@@ -114,7 +156,7 @@ workflow LONGREAD {
         EXPRESSION(full_length_reads, transcriptome_fasta)
     } else {
         log.warn "Expression analysis skipped."
-        salmon_logs = Channel.empty()
+        salmon_logs = channel.empty()
     }
 
     // TODO: Collect all versions.yml files
@@ -126,7 +168,7 @@ workflow LONGREAD {
     //VERSIONS(ch_versions.collect())
 
     // Collect all output for MultiQC
-    multiqc_files = Channel.empty()
+    multiqc_files = channel.empty()
     if (params.qc) multiqc_files = multiqc_files.mix(nanoplot_logs)
     if (params.qc) multiqc_files = multiqc_files.mix(pychopper_logs)
     if (params.assembly) multiqc_files = multiqc_files.mix(mapping_logs)
@@ -138,7 +180,7 @@ workflow LONGREAD {
     }
 
     // Run MultiQC only if there are input files
-    MULTIQC_REPORT = Channel.empty()
+    MULTIQC_REPORT = channel.empty()
     multiqc_input.branch {
         run: it != null
         skip: it == null
@@ -155,8 +197,8 @@ workflow LONGREAD {
     MULTIQC_REPORT = MULTIQC_REPORT.mix(MULTIQC.out.report)
 
     emit:
-    full_length_reads = params.qc ? QC.out.full_length_reads : Channel.empty()
-    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome : Channel.empty()
-    expression = params.expression ? EXPRESSION.out.salmon_quant : Channel.empty()
+    full_length_reads = params.qc ? QC.out.full_length_reads : channel.empty()
+    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome : channel.empty()
+    expression = params.expression ? EXPRESSION.out.salmon_quant : channel.empty()
     multiqc_report = MULTIQC_REPORT 
 }
