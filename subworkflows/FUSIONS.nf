@@ -12,7 +12,6 @@ workflow FUSIONS {
         full_length_fastq_reads = full_length_reads
             .map { _sample_id, file -> file }.collect()
 
-        full_length_fastq_reads.view()
         jaffal(full_length_fastq_reads,
             jaffal_data_dir,
             genome_version,

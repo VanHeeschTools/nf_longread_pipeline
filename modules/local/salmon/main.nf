@@ -15,8 +15,8 @@ process SALMON {
     script:    
         """
         salmon quant ${extra_opts} -p "${task.cpus}" -t "${ref_transcriptome}" -l SF -a "${bam}" -o ${sample}
-            # Generate versions.yml
-
+        
+        # Generate versions.yml
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             salmon: \$(salmon --version | sed 's/^salmon //; s/Last.*\$//')

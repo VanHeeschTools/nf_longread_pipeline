@@ -6,31 +6,31 @@ process MINIMAP2 {
     label 'process_high'
 
     input:
-    tuple val(sample), path(reads)
-    path reference
-    val extra_opts
+        tuple val(sample), path(reads)
+        path reference
+        val extra_opts
 
     output:
-    tuple val(sample), path("*.sam"), emit: sam
-    path "versions.yml", emit: versions
+        tuple val(sample), path("*.sam"), emit: sam
+        path "versions.yml", emit: versions
 
     script:
-    """
-    echo "Nextflow requested CPUs: ${task.cpus}"
-    echo "Nextflow requested memory: ${task.memory}"
+        """
+        echo "Nextflow requested CPUs: ${task.cpus}"
+        echo "Nextflow requested memory: ${task.memory}"
 
-    minimap2 \
-        -ax splice \
-        -t $task.cpus \
-        $extra_opts \
-        $reference \
-        $reads > ${sample}_aligned.sam
+        minimap2 \
+            -ax splice \
+            -t $task.cpus \
+            $extra_opts \
+            $reference \
+            $reads > ${sample}_aligned.sam
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        minimap2: \$(minimap2 --version 2>&1)
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            minimap2: \$(minimap2 --version 2>&1)
+        END_VERSIONS
+        """
 }
 
 process MINIMAP2_INDEX {
@@ -49,14 +49,14 @@ process MINIMAP2_INDEX {
         path "versions.yml", emit: versions
 
     script:
-    """
-    minimap2 -t "${task.cpus}" ${extra_opts} -I 1000G -d "transcriptome_index.mmi" "${reference}"
+        """
+        minimap2 -t "${task.cpus}" ${extra_opts} -I 1000G -d "transcriptome_index.mmi" "${reference}"
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        minimap2: \$(minimap2 --version 2>&1)
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            minimap2: \$(minimap2 --version 2>&1)
+        END_VERSIONS
+        """
 }
 
 
@@ -72,7 +72,7 @@ process MINIMAP2_TRANSCRIPTOME{
         tuple val(sample), path (fastq_reads)
         path index 
         val extra_opts
-        
+
     output:
         tuple val(sample), path("${sample}_transcripts_aligned.sam"), emit: sam
         path "versions.yml", emit: versions

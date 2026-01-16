@@ -68,7 +68,7 @@ workflow LONGREAD {
     reference = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
 
-    ch_test = checkInputVar(params.input)
+    ch_test = checkInputVar(params.input).view()
     sample_map = sample_map.map{ sample, barcode -> tuple( [id:"${sample}"], [sample:"${sample}"], [barcode:"${barcode}"])}
     ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
     ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
@@ -82,9 +82,11 @@ workflow LONGREAD {
         } else {
             QC(ch_input2, params.direct_rna)
         }
+
         // Collect logs for MultiQC
         nanoplot_logs = QC.out.nanoplot_logs.collect()
         pychopper_logs = QC.out.pychopper_logs.collect()
+        
         //  Collect full_length_reads for downstream steps
         full_length_reads = QC.out.full_length_reads
     } else {
