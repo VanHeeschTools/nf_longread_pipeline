@@ -1,8 +1,9 @@
-include { QC } from '../subworkflows/QC.nf'
-include { ASSEMBLY } from '../subworkflows/ASSEMBLY.nf'
+include { QC }         from '../subworkflows/QC.nf'
+include { ASSEMBLY }   from '../subworkflows/ASSEMBLY.nf'
 include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
-include { VERSIONS } from '../modules/local/versions/main'
-include { MULTIQC } from '../modules/local/multiqc/main'
+include { FUSIONS }    from '../subworkflows/FUSIONS.nf'
+include { VERSIONS }   from '../modules/local/versions/main'
+include { MULTIQC }    from '../modules/local/multiqc/main'
 
 
 // Function to validate samplesheet inputs (can be moved to a separate module)
@@ -55,7 +56,7 @@ workflow LONGREAD {
     // If sample sheet is provided, use it to update sample names
     if (sample_sheet_ch) {
         sample_map = validateSampleSheet(sample_sheet_ch)
- 
+
         //Exit if sample_map is empty
         if (!sample_map) {
             log.error("ERROR: sample_map is null or empty! Check your sample sheet.")
@@ -101,7 +102,7 @@ workflow LONGREAD {
             full_length_reads = channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
                 // Check if channel is empty and provide error message
                 .ifEmpty {
-                     error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
+                    error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
                 }
                 // Mimic tuple(sample, file) structure from input_ch
                 // Replace _full_length_reads and extensions from filename to get sample name
@@ -140,6 +141,13 @@ workflow LONGREAD {
     } else {
         log.warn "Expression analysis skipped."
         salmon_logs = channel.empty()
+    }
+
+    if (params.fusions) {
+        FUSIONS(full_length_reads,
+            params.jaffal_data_dir,
+            params.genome_version,
+            params.annotation_version)
     }
 
     // TODO: Collect all versions.yml files

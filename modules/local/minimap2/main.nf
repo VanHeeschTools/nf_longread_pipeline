@@ -69,20 +69,21 @@ process MINIMAP2_TRANSCRIPTOME{
     label 'process_high'
 
     input:
-       tuple val(sample), path (fastq_reads)
-       path index 
-       val extra_opts
+        tuple val(sample), path (fastq_reads)
+        path index 
+        val extra_opts
+        
     output:
-       tuple val(sample), path("${sample}_transcripts_aligned.sam"), emit: sam
+        tuple val(sample), path("${sample}_transcripts_aligned.sam"), emit: sam
         path "versions.yml", emit: versions
 
+    script:
+        """
+        minimap2 -t ${task.cpus} -ax map-ont ${extra_opts} -N 100 ${index} ${fastq_reads} > ${sample}_transcripts_aligned.sam
 
-    """
-    minimap2 -t ${task.cpus} -ax map-ont ${extra_opts} -N 100 ${index} ${fastq_reads} > ${sample}_transcripts_aligned.sam
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        minimap2: \$(minimap2 --version 2>&1)
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            minimap2: \$(minimap2 --version 2>&1)
+        END_VERSIONS
+        """
 }
