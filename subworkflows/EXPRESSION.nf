@@ -1,7 +1,7 @@
-include { MINIMAP2_INDEX; MINIMAP2_TRANSCRIPTOME } from '../modules/local/minimap2/main'
-include { PROCESS_ALIGNMENT_TRANSCRIPTOME } from '../modules/local/process_alignment/main'
-include { SALMON } from '../modules/local/salmon/main'
-include { VERSIONS } from '../modules/local/versions/main'
+include { minimap2_index; minimap2_transcriptome } from '../modules/local/minimap2/main'
+include { process_alignment_transcriptome } from '../modules/local/process_alignment/main'
+include { salmon } from '../modules/local/salmon/main'
+include { versions } from '../modules/local/versions/main'
 
 workflow EXPRESSION {
     take:
@@ -13,31 +13,31 @@ workflow EXPRESSION {
     ch_versions = Channel.empty()
     
      // Map against transcriptome
-    MINIMAP2_INDEX(transcriptome_fasta,
+    minimap2_index(transcriptome_fasta,
                     params.minimap_index_extra_opts)
-    ch_versions = ch_versions.mix(MINIMAP2_INDEX.out.versions)
+    ch_versions = ch_versions.mix(minimap2_index.out.versions)
 
-    MINIMAP2_TRANSCRIPTOME(full_length_reads,
-                            MINIMAP2_INDEX.out.index,
+    minimap2_transcriptome(full_length_reads,
+                            minimap2_index.out.index,
                             params.minimap_extra_opts)
-    ch_versions = ch_versions.mix(MINIMAP2_TRANSCRIPTOME.out.versions)
+    ch_versions = ch_versions.mix(minimap2_transcriptome.out.versions)
 
-    PROCESS_ALIGNMENT_TRANSCRIPTOME(MINIMAP2_TRANSCRIPTOME.out.sam)                    
-    ch_versions = ch_versions.mix(PROCESS_ALIGNMENT_TRANSCRIPTOME.out.versions)
+    process_alignment_transcriptome(minimap2_transcriptome.out.sam)                    
+    ch_versions = ch_versions.mix(process_alignment_transcriptome.out.versions)
 
-    // Run Salmon quant
-    SALMON(PROCESS_ALIGNMENT_TRANSCRIPTOME.out.bam,
+    // Run salmon quant
+    salmon(process_alignment_transcriptome.out.bam,
             transcriptome_fasta,
             params.salmon_extra_opts)
-    ch_versions = ch_versions.mix(SALMON.out.versions)
+    ch_versions = ch_versions.mix(salmon.out.versions)
     ch_versions.view()
 
     // Combine all version information
-    //VERSIONS (
+    //versions (
     //    ch_versions.unique().collectFile(name: 'collated_versions.yml')
     //)
 
     emit:
-    salmon_quant = SALMON.out.quant
-    //versions = VERSIONS.out
+    salmon_quant = salmon.out.quant
+    //versions = versions.out
 }     

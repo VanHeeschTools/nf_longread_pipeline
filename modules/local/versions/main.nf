@@ -1,4 +1,4 @@
-process VERSIONS {
+process versions {
     input:
     path versions
 

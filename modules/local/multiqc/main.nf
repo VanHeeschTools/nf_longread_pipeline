@@ -1,4 +1,4 @@
-process MULTIQC {
+process multiqc {
     label 'process_low'
     
     input:
@@ -10,9 +10,6 @@ process MULTIQC {
 
     script:
         """
-        #Add projectDir for custom multiqc scripts
-        export PYTHONPATH=$projectDir/bin:$PYTHONPATH
-
         multiqc . -f -c $config
         """
 }

@@ -1,4 +1,4 @@
-process PROCESS_ALIGNMENT {
+process process_alignment {
     label 'samtools'
     label 'process_high'
 
@@ -8,7 +8,7 @@ process PROCESS_ALIGNMENT {
     output:
     tuple val(sample), path("*.bam"), emit: bam
     tuple val(sample), path("*.bam.bai"), emit: bai
-    path("*_mapping.stats"), emit: stats
+    path "${sample}_mapping.stats", emit: stats
     path "versions.yml", emit: versions
 
     //TODO filter unmapped reads
@@ -29,7 +29,7 @@ process PROCESS_ALIGNMENT {
 
 //TODO add process generate alignment stats with sekqit
 
-process PROCESS_ALIGNMENT_TRANSCRIPTOME {
+process process_alignment_transcriptome {
     label 'samtools'
     label 'remap'
     label 'process_medium'

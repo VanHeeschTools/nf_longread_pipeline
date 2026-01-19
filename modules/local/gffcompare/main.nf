@@ -1,4 +1,4 @@
-process GFFCOMPARE {
+process gffcompare {
     label 'gffcompare'
     label 'process_medium'
 
@@ -35,7 +35,7 @@ process GFFCOMPARE {
     """
 }
 
-process MERGE_GTFS {
+process merge_gtfs {
     label 'gffcompare'
     label 'merge_gtfs'
     label 'process_medium'
@@ -71,7 +71,7 @@ process MERGE_GTFS {
     """
 }
 
-process PARSE_TRACKING {
+process parse_tracking {
     label 'merge_gtfs'
     label 'python'
 
@@ -89,7 +89,7 @@ process PARSE_TRACKING {
 }
 
 // Define process for transcript filtering and annotation
-process FILTER_ANNOTATE {
+process filter_annotate {
     label "merge_gtfs"
     label "process_medium"
 
@@ -123,7 +123,7 @@ process FILTER_ANNOTATE {
 
 
 // Creates a fasta file of the transcript sequence using the reference fasta file and the transcriptome gtf
-process TRANSCRIPTOME_FASTA {
+process transcriptome_fasta {
     label "merge_gtfs"
     label "process_low"
 

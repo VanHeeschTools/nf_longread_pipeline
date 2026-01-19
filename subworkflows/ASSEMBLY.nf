@@ -1,22 +1,22 @@
-include { MINIMAP2 } from '../modules/local/minimap2/main'
-include { PROCESS_ALIGNMENT } from '../modules/local/process_alignment/main'
-include { STRINGTIE } from '../modules/local/stringtie/main'
-include { MERGE_GTFS; GFFCOMPARE; PARSE_TRACKING; FILTER_ANNOTATE; TRANSCRIPTOME_FASTA } from '../modules/local/gffcompare/main'
+include { minimap2 } from '../modules/local/minimap2/main'
+include { process_alignment } from '../modules/local/process_alignment/main'
+include { stringtie } from '../modules/local/stringtie/main'
+include { merge_gtfs; gffcompare; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
 
 workflow ASSEMBLY {
     take:
-    reads // Trimmed and oriented reads
-    reference // Reference genome
-    annotation // Reference gtf
+    reads            // Trimmed and oriented reads
+    reference_genome // Reference genome
+    annotation       // Reference gtf
 
     main: 
-    MINIMAP2(reads,
-                reference,
+    minimap2(reads,
+                reference_genome,
                 params.minimap_extra_opts)
 
-    PROCESS_ALIGNMENT(MINIMAP2.out.sam)
+    process_alignment(minimap2.out.sam)
 
-    STRINGTIE(PROCESS_ALIGNMENT.out.bam,
+    stringtie(process_alignment.out.bam,
                 annotation,
                 params.stringtie_extra_opts)
     
@@ -26,44 +26,39 @@ workflow ASSEMBLY {
         ? params.masked_fasta
         : "${projectDir}/assets/NO_FILE"
     
-    // Run GFFCOMPARE on each sample's GTF
-    GFFCOMPARE(STRINGTIE.out.gff, annotation, masked_fasta)
+    // Run gffcompare on each sample's GTF
+    gffcompare(stringtie.out.stringtie_gff, annotation, masked_fasta)
 
     // Collect GTF files and create a list file
-    ch_gtf_list = STRINGTIE.out.gff.map { it[1] }.collect().map { gtfs ->
+    ch_gtf_list = stringtie.out.stringtie_gff.map { it[1] }.collect().map { gtfs ->
         def gtf_list = file("${workDir}/gtf_list.txt")
         gtf_list.text = gtfs.join('\n')
         return gtf_list
     }
 
     // Merge all GTFs
-    MERGE_GTFS(ch_gtf_list, annotation, masked_fasta, params.output_prefix)
+    merge_gtfs(ch_gtf_list, annotation, masked_fasta, params.output_prefix)
 
     // Parse the tracking file into transcript presence/absence in each sample
-    PARSE_TRACKING(MERGE_GTFS.out.tracking, params.output_prefix)
+    parse_tracking(merge_gtfs.out.tracking, params.output_prefix)
 
     // Filter anotation 
     // TODO require GTF
-    FILTER_ANNOTATE(annotation,
+    filter_annotate(annotation,
                     params.refseq_gtf ?: "",
-                    MERGE_GTFS.out.merged_gtf,
-                    MERGE_GTFS.out.tracking, 
+                    merge_gtfs.out.merged_gtf,
+                    merge_gtfs.out.tracking, 
                     params.min_occurrence,
                     params.min_tpm,
                     params.output_prefix)
 
-    TRANSCRIPTOME_FASTA(FILTER_ANNOTATE.out.filtered_gtf,
-                        reference,
+    transcriptome_fasta(filter_annotate.out.filtered_gtf,
+                        reference_genome,
                         params.output_prefix)
 
-    FILTER_ANNOTATE.out.filtered_gtf.view()
-    TRANSCRIPTOME_FASTA.out.fasta.view()
-    PROCESS_ALIGNMENT.out.stats.collect().view()
-    GFFCOMPARE.out.stats.collect().view()
-
     emit:
-    transcriptome = FILTER_ANNOTATE.out.filtered_gtf
-    fasta = TRANSCRIPTOME_FASTA.out.fasta
-    mapping_logs = PROCESS_ALIGNMENT.out.stats.collect()
-    gffcompare_logs = GFFCOMPARE.out.stats.collect()
+    transcriptome_gtf = filter_annotate.out.filtered_gtf
+    transcriptome_fasta = transcriptome_fasta.out.fasta
+    mapping_logs =  process_alignment.out.stats.collect()
+    gffcompare_logs = gffcompare.out.stats.collect()
 }

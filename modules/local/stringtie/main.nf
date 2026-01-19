@@ -1,19 +1,20 @@
-process STRINGTIE {
+// StringTie process using input BAM file and reference genome
+process stringtie {
     tag "$sample"
     label 'process_high'
 
     input:
-        tuple val(sample), path(bam)
-        path reference
-        val extra_opts
+        tuple val(sample), path(bam) // Tuple, sample id and BAM file
+        path reference_genome        // Path, reference genome
+        val extra_opts               // Val, extra options defined in nextflow.config
 
     output:
-        tuple val(sample), path("*.gff"), emit: gff
-        path "*_stringtie.log", emit: log
+        tuple val(sample), path("${sample}.gff"), emit: stringtie_gff
+        path "${sample}_stringtie.log", emit: log
         path "versions.yml", emit: versions
 
     script:
-        def reference_command = reference.name != 'NO_FILE' ? "-G $reference" : ''
+        def reference_command = reference_genome.name != 'NO_FILE' ? "-G $reference_genome" : ''
         
         """
         stringtie \\

@@ -1,3 +1,4 @@
+// Create longread statistics, figures and reports using NanoPlot
 process nanoplot {
     tag "$sample"
     label 'process_low'
@@ -10,11 +11,7 @@ process nanoplot {
         path "${sample}_nanoplot"
 
     script:
-        //detect if input is single file or list of files
-        def input_files = reads instanceof List ? reads.join(' ') : [reads] 
-        //concatenate list of files
-        def input_string = "${input_files.join(' ')}"
-        //identify format of input files
+        // Identify format of input files
         def input_format = reads[0].getExtension() == "bam" ? "--bam" : "--fastq"
         """
         NanoPlot $input_format $reads \

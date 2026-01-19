@@ -2,8 +2,8 @@ include { QC }         from '../subworkflows/QC.nf'
 include { ASSEMBLY }   from '../subworkflows/ASSEMBLY.nf'
 include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
 include { FUSIONS }    from '../subworkflows/FUSIONS.nf'
-include { VERSIONS }   from '../modules/local/versions/main'
-include { MULTIQC }    from '../modules/local/multiqc/main'
+include { versions }   from '../modules/local/versions/main'
+include { multiqc }    from '../modules/local/multiqc/main'
 
 
 // Function to validate samplesheet inputs (can be moved to a separate module)
@@ -22,7 +22,7 @@ def validateSampleSheet(sample_sheet) {
 def checkInputVar(input_dir) {
     if (file(input_dir).isDirectory()) {
         log.info "Processing directory: ${params.input}"
-        def input_ch2 = channel
+        def input_ch2 = Channel
                 .fromPath("${params.input}/**/*.{fastq,fastq.gz,bam}")
                 .ifEmpty { error "No input files found in directory: ${params.input}" }
                 .map { file -> 
@@ -64,15 +64,14 @@ workflow LONGREAD {
         }
     }
 
-    
-    reference = file(params.reference_genome, checkIfExists: true)
+
+    reference_genome = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
 
-    ch_test = checkInputVar(params.input).view()
+    ch_test = checkInputVar(params.input)
     sample_map = sample_map.map{ sample, barcode -> tuple( [id:"${sample}"], [sample:"${sample}"], [barcode:"${barcode}"])}
     ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
     ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
-
 
 
     if (params.qc) {
@@ -87,7 +86,7 @@ workflow LONGREAD {
         nanoplot_logs = QC.out.nanoplot_logs.collect()
         pychopper_logs = QC.out.pychopper_logs.collect()
         
-        //  Collect full_length_reads for downstream steps
+        // Collect full_length_reads for downstream steps
         full_length_reads = QC.out.full_length_reads
     } else {
         // If QC is skipped, set empty channels for logs
@@ -115,16 +114,14 @@ workflow LONGREAD {
         }
     }
 
+    mapping_logs = channel.empty()
+    gffcompare_logs = channel.empty()
     if (params.assembly) {
-        ASSEMBLY(full_length_reads, reference, annotation)
-        transcriptome_fasta = ASSEMBLY.out.fasta
+        ASSEMBLY(full_length_reads, reference_genome, annotation)
+        transcriptome_fasta = ASSEMBLY.out.transcriptome_fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
         gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
-        mapping_logs = channel.empty()
-        gffcompare_logs = channel.empty()
     } else {
-        mapping_logs = channel.empty()
-        gffcompare_logs = channel.empty()
         log.warn "Assembly step skipped."
 
         //Assign transcriptome fasta if expression is true
@@ -179,7 +176,7 @@ workflow LONGREAD {
         skip: it == null
     }.set { multiqc_branch }
     
-    MULTIQC(multiqc_branch.run, file(params.multiqc_config))
+    multiqc(multiqc_branch.run, file(params.multiqc_config))
 
     // For the skip branch, emit an empty channel
     multiqc_branch.skip
@@ -187,11 +184,11 @@ workflow LONGREAD {
         .set { MULTIQC_REPORT }
 
     // Merge the MultiQC outputs
-    MULTIQC_REPORT = MULTIQC_REPORT.mix(MULTIQC.out.report)
+    MULTIQC_REPORT = MULTIQC_REPORT.mix(multiqc.out.report)
 
     emit:
     full_length_reads = params.qc ? QC.out.full_length_reads : channel.empty()
-    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome : channel.empty()
+    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome_gtf : channel.empty()
     expression = params.expression ? EXPRESSION.out.salmon_quant : channel.empty()
     multiqc_report = MULTIQC_REPORT 
 }

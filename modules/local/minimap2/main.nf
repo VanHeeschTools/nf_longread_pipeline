@@ -1,4 +1,4 @@
-process MINIMAP2 {
+process minimap2 {
     /*
     Map reads to reference genome.
     */
@@ -33,7 +33,19 @@ process MINIMAP2 {
         """
 }
 
-process MINIMAP2_INDEX {
+    /*
+    minimap2 \
+        -ax splice \
+        -t $task.cpus \
+        $extra_opts \
+        $reference \
+        $reads | \
+    samtools sort \
+        -@ ${task.cpus} \
+        -o TEST_${sample}_aligned.sorted.bam
+    */
+
+process minimap2_index {
     /*
     Build minimap index from custom transcriptome
     */
@@ -60,7 +72,7 @@ process MINIMAP2_INDEX {
 }
 
 
-process MINIMAP2_TRANSCRIPTOME{
+process minimap2_transcriptome{
     /*
     Map reads to custom transcriptome.
     */
