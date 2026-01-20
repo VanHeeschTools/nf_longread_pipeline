@@ -22,11 +22,10 @@ workflow EXPRESSION {
                             params.minimap_extra_opts)
     ch_versions = ch_versions.mix(minimap2_transcriptome.out.versions)
 
-    process_alignment_transcriptome(minimap2_transcriptome.out.sam)                    
-    ch_versions = ch_versions.mix(process_alignment_transcriptome.out.versions)
+    //ch_versions = ch_versions.mix(process_alignment_transcriptome.out.versions)
 
     // Run salmon quant
-    salmon(process_alignment_transcriptome.out.bam,
+    salmon(minimap2_transcriptome.out.minimap2_transcriptome_bam,
             transcriptome_fasta,
             params.salmon_extra_opts)
     ch_versions = ch_versions.mix(salmon.out.versions)

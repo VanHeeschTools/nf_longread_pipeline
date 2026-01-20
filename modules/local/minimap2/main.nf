@@ -1,7 +1,5 @@
+// Map reads to reference genome using Minimap2
 process minimap2 {
-    /*
-    Map reads to reference genome.
-    */
     label 'minimap2'
     label 'process_high'
 
@@ -11,7 +9,9 @@ process minimap2 {
         val extra_opts
 
     output:
-        tuple val(sample), path("*.sam"), emit: sam
+        tuple val(sample), path("${sample}_aligned.sorted.bam"), emit: minimap2_bam
+        tuple val(sample), path("${sample}_aligned.sorted.bam.bai"), emit: minimap2_bam_bai
+        path "${sample}_mapping.stats", emit: bam_stats
         path "versions.yml", emit: versions
 
     script:
@@ -24,31 +24,26 @@ process minimap2 {
             -t $task.cpus \
             $extra_opts \
             $reference \
-            $reads > ${sample}_aligned.sam
+            $reads | \
+        samtools sort \
+            -@ ${task.cpus} \
+            -o ${sample}_aligned.sorted.bam
+
+        samtools index ${sample}_aligned.sorted.bam
+
+        samtools stats ${sample}_aligned.sorted.bam > ${sample}_mapping.stats
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             minimap2: \$(minimap2 --version 2>&1)
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
         END_VERSIONS
         """
 }
 
-    /*
-    minimap2 \
-        -ax splice \
-        -t $task.cpus \
-        $extra_opts \
-        $reference \
-        $reads | \
-    samtools sort \
-        -@ ${task.cpus} \
-        -o TEST_${sample}_aligned.sorted.bam
-    */
-
+// Build minimap index from custom transcriptome
 process minimap2_index {
-    /*
-    Build minimap index from custom transcriptome
-    */
+
     label 'remap'
     label 'minimap2'
     label 'process_high'
@@ -71,11 +66,8 @@ process minimap2_index {
         """
 }
 
-
+// Map reads to custom transcriptome using Minimap2
 process minimap2_transcriptome{
-    /*
-    Map reads to custom transcriptome.
-    */
     label 'remap'
     label 'minimap2'
     label 'process_high'
@@ -86,16 +78,24 @@ process minimap2_transcriptome{
         val extra_opts
 
     output:
-        tuple val(sample), path("${sample}_transcripts_aligned.sam"), emit: sam
+        tuple val(sample), path("${sample}_transcripts_aligned.bam"), emit: minimap2_transcriptome_bam
         path "versions.yml", emit: versions
 
     script:
         """
-        minimap2 -t ${task.cpus} -ax map-ont ${extra_opts} -N 100 ${index} ${fastq_reads} > ${sample}_transcripts_aligned.sam
+        minimap2 -t ${task.cpus} \
+            -ax map-ont ${extra_opts} \
+            -N 100 ${index} \
+            ${fastq_reads} |
+        samtools view \
+            -@ ${task.cpus} \
+            -Sb  \
+            -o ${sample}_transcripts_aligned.bam
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             minimap2: \$(minimap2 --version 2>&1)
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
         END_VERSIONS
         """
 }

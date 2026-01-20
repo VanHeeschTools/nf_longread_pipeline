@@ -6,19 +6,13 @@ process process_alignment {
     tuple val(sample), path(sam)
 
     output:
-    tuple val(sample), path("*.bam"), emit: bam
-    tuple val(sample), path("*.bam.bai"), emit: bai
     path "${sample}_mapping.stats", emit: stats
     path "versions.yml", emit: versions
 
     //TODO filter unmapped reads
     script:
     """
-    samtools sort -@ $task.cpus -o ${sample}.bam $sam
-
-    samtools index ${sample}.bam
-
-    samtools stats ${sample}.bam > ${sample}_mapping.stats
+    samtools stats ${sample}_aligned.sorted.bam > ${sample}_mapping.stats
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -1,5 +1,4 @@
 include { minimap2 } from '../modules/local/minimap2/main'
-include { process_alignment } from '../modules/local/process_alignment/main'
 include { stringtie } from '../modules/local/stringtie/main'
 include { merge_gtfs; gffcompare; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
 
@@ -14,9 +13,7 @@ workflow ASSEMBLY {
                 reference_genome,
                 params.minimap_extra_opts)
 
-    process_alignment(minimap2.out.sam)
-
-    stringtie(process_alignment.out.bam,
+    stringtie(minimap2.out.minimap2_bam,
                 annotation,
                 params.stringtie_extra_opts)
     
@@ -59,6 +56,6 @@ workflow ASSEMBLY {
     emit:
     transcriptome_gtf = filter_annotate.out.filtered_gtf
     transcriptome_fasta = transcriptome_fasta.out.fasta
-    mapping_logs =  process_alignment.out.stats.collect()
+    mapping_logs =  minimap2.out. bam_stats.collect()
     gffcompare_logs = gffcompare.out.stats.collect()
 }
