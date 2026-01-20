@@ -14,6 +14,9 @@ process minimap2 {
         path "${sample}_mapping.stats", emit: bam_stats
         path "versions.yml", emit: versions
 
+    when:
+    task.ext.when == null || task.ext.when
+
     script:
         """
         echo "Nextflow requested CPUs: ${task.cpus}"
@@ -42,7 +45,7 @@ process minimap2 {
 }
 
 // Build minimap index from custom transcriptome
-process minimap2_index {
+process create_minimap2_index {
 
     label 'remap'
     label 'minimap2'
@@ -55,6 +58,9 @@ process minimap2_index {
         path "transcriptome_index.mmi", emit: index
         path "versions.yml", emit: versions
 
+    when:
+    task.ext.when == null || task.ext.when
+    
     script:
         """
         minimap2 -t "${task.cpus}" ${extra_opts} -I 1000G -d "transcriptome_index.mmi" "${reference}"
@@ -80,6 +86,9 @@ process minimap2_transcriptome{
     output:
         tuple val(sample), path("${sample}_transcripts_aligned.bam"), emit: minimap2_transcriptome_bam
         path "versions.yml", emit: versions
+
+    when:
+        task.ext.when == null || task.ext.when
 
     script:
         """

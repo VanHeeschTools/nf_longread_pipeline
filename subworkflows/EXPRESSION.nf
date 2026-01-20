@@ -1,4 +1,4 @@
-include { minimap2_index; minimap2_transcriptome } from '../modules/local/minimap2/main'
+include { create_minimap2_index; minimap2_transcriptome } from '../modules/local/minimap2/main'
 include { process_alignment_transcriptome } from '../modules/local/process_alignment/main'
 include { salmon } from '../modules/local/salmon/main'
 include { versions } from '../modules/local/versions/main'
@@ -13,12 +13,12 @@ workflow EXPRESSION {
     ch_versions = Channel.empty()
     
      // Map against transcriptome
-    minimap2_index(transcriptome_fasta,
+    create_minimap2_index(transcriptome_fasta,
                     params.minimap_index_extra_opts)
-    ch_versions = ch_versions.mix(minimap2_index.out.versions)
+    ch_versions = ch_versions.mix(create_minimap2_index.out.versions)
 
     minimap2_transcriptome(full_length_reads,
-                            minimap2_index.out.index,
+                            create_minimap2_index.out.index,
                             params.minimap_extra_opts)
     ch_versions = ch_versions.mix(minimap2_transcriptome.out.versions)
 

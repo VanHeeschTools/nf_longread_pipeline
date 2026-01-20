@@ -11,7 +11,10 @@ process salmon {
     output:
         tuple val(sample), path("${sample}/quant.sf"), emit: quant
         path "versions.yml", emit: versions
-        
+
+    when:
+        task.ext.when == null || task.ext.when
+
     script:    
         """
         salmon quant ${extra_opts} -p "${task.cpus}" -t "${ref_transcriptome}" -l SF -a "${bam}" -o ${sample}

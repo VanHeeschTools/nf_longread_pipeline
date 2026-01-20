@@ -14,6 +14,9 @@ process pychopper {
         path "${sample}_pychopper_stats.tsv", emit: stats
         path "versions.yml", emit: versions
 
+    when:
+        task.ext.when == null || task.ext.when
+
     script:
         //Check if reads is a list
         //If not, make it a list for .join() to work

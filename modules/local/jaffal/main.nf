@@ -13,6 +13,9 @@ process jaffal {
         path "jaffa_results.csv", emit: jaffa_results_csv
         path "jaffa_results.fasta", emit: jaffa_results_fasta
 
+    when:
+        task.ext.when == null || task.ext.when 
+
     script:
         """
         # Run Jaffal

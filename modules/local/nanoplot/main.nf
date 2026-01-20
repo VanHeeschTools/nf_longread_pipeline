@@ -10,6 +10,9 @@ process nanoplot {
     output:
         path "${sample}_nanoplot"
 
+    when:
+        task.ext.when == null || task.ext.when
+
     script:
         // Identify format of input files
         def input_format = reads[0].getExtension() == "bam" ? "--bam" : "--fastq"

@@ -13,6 +13,9 @@ process stringtie {
         path "${sample}_stringtie.log", emit: log
         path "versions.yml", emit: versions
 
+    when:
+        task.ext.when == null || task.ext.when
+
     script:
         def reference_command = reference_genome.name != 'NO_FILE' ? "-G $reference_genome" : ''
         
