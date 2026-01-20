@@ -120,7 +120,6 @@ workflow LONGREAD {
         ASSEMBLY(full_length_reads, reference_genome, annotation)
         transcriptome_fasta = ASSEMBLY.out.transcriptome_fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
-        gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
     } else {
         log.warn "Assembly step skipped."
 

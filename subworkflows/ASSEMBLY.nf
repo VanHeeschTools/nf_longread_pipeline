@@ -1,6 +1,6 @@
 include { minimap2 } from '../modules/local/minimap2/main'
 include { stringtie } from '../modules/local/stringtie/main'
-include { merge_gtfs; gffcompare; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
+include { merge_gtfs; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
 
 workflow ASSEMBLY {
     take:
@@ -23,9 +23,6 @@ workflow ASSEMBLY {
         ? params.masked_fasta
         : "${projectDir}/assets/NO_FILE"
     
-    // Run gffcompare on each sample's GTF
-    gffcompare(stringtie.out.stringtie_gff, annotation, masked_fasta)
-
     // Collect GTF files and create a list file
     ch_gtf_list = stringtie.out.stringtie_gff.map { it[1] }.collect().map { gtfs ->
         def gtf_list = file("${workDir}/gtf_list.txt")
@@ -57,5 +54,4 @@ workflow ASSEMBLY {
     transcriptome_gtf = filter_annotate.out.filtered_gtf
     transcriptome_fasta = transcriptome_fasta.out.fasta
     mapping_logs =  minimap2.out. bam_stats.collect()
-    gffcompare_logs = gffcompare.out.stats.collect()
 }
