@@ -73,6 +73,12 @@ workflow LONGREAD {
     ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
     ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
 
+    // Declare empty channels
+    nanoplot_logs = channel.empty()
+    pychopper_logs = channel.empty()
+    mapping_logs = channel.empty()
+    gffcompare_logs = channel.empty()
+    salmon_logs = channel.empty()
 
     if (params.qc) {
         if (params.direct_rna) {
@@ -89,9 +95,6 @@ workflow LONGREAD {
         // Collect full_length_reads for downstream steps
         full_length_reads = QC.out.full_length_reads
     } else {
-        // If QC is skipped, set empty channels for logs
-        nanoplot_logs = channel.empty()
-        pychopper_logs = channel.empty()
 
         if (params.direct_rna) {
             // Use provided reads as full_length_reads
@@ -114,8 +117,6 @@ workflow LONGREAD {
         }
     }
 
-    mapping_logs = channel.empty()
-    gffcompare_logs = channel.empty()
     if (params.assembly) {
         ASSEMBLY(full_length_reads, reference_genome, annotation)
         transcriptome_fasta = ASSEMBLY.out.transcriptome_fasta
@@ -135,10 +136,7 @@ workflow LONGREAD {
     }
 
     if (params.expression) {    
-        EXPRESSION(full_length_reads, transcriptome_fasta)
-    } else {
-        log.warn "Expression analysis skipped."
-        salmon_logs = channel.empty()
+        EXPRESSION(full_length_reads, transcriptome_fasta, annotation)
     }
 
     if (params.fusions) {

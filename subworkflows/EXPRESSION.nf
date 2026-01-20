@@ -1,12 +1,13 @@
 include { create_minimap2_index; minimap2_transcriptome } from '../modules/local/minimap2/main'
 include { process_alignment_transcriptome } from '../modules/local/process_alignment/main'
-include { salmon } from '../modules/local/salmon/main'
+include { salmon; salmon_tables } from '../modules/local/salmon/main'
 include { versions } from '../modules/local/versions/main'
 
 workflow EXPRESSION {
     take:
     full_length_reads
-    transcriptome_fasta   
+    transcriptome_fasta  
+    annotation
 
     main:
     // Create empty channel for versions
@@ -29,7 +30,15 @@ workflow EXPRESSION {
             transcriptome_fasta,
             params.salmon_extra_opts)
     ch_versions = ch_versions.mix(salmon.out.versions)
-    ch_versions.view()
+
+     // Write the paths of the salmon_quasi output files to a text file
+    quant_paths = salmon.out.quant
+        .map { _sample, it -> it.toString() }
+        .collectFile(
+        name: 'quant_paths.txt',
+        newLine: true, sort: true )
+
+    salmon_tables(quant_paths, annotation, "salmon_tables")
 
     // Combine all version information
     //versions (

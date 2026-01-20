@@ -26,3 +26,27 @@ process salmon {
         END_VERSIONS
         """
 }
+
+// Create satistics table using the salmon output
+process salmon_tables {
+
+    label "process_low"
+
+    input:
+        val quant_paths
+        path gtf
+        val prefix
+
+    output:
+        path "${prefix}*"
+        path "${prefix}_multiqc_summary_mqc.tsv", emit: salmon_multiqc
+        path "${prefix}_transcript_tpms_mqc.tsv", emit: salmon_tpm
+
+    script:
+        """
+        salmon_cohort_tables.R \
+        ${quant_paths} \
+        ${gtf} \
+        ${prefix}
+        """
+}
