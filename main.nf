@@ -7,11 +7,12 @@ include { LONGREAD } from './workflows/longread'
 workflow {
 
     LONGREAD()
+
+    workflow.onComplete {
+        println "Workflow finished at: ${workflow.complete}"
+        println "Duration: ${workflow.duration}"
+        println "Succeeded: ${workflow.success}"
+        println "Work dir: ${workflow.workDir}"
+    }
 }
 
-workflow.onComplete {
-    println "Workflow finished at: ${workflow.complete}"
-    println "Duration: ${workflow.duration}"
-    println "Succeeded: ${workflow.success}"
-    println "Work dir: ${workflow.workDir}"
-}

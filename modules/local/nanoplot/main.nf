@@ -8,7 +8,7 @@ process nanoplot {
         val extra_opts
 
     output:
-        path "${sample}_nanoplot"
+        path "${sample}_nanoplot", emit: nanoplot_dir
 
     when:
         task.ext.when == null || task.ext.when
@@ -17,6 +17,11 @@ process nanoplot {
         // Identify format of input files
         def input_format = reads[0].getExtension() == "bam" ? "--bam" : "--fastq"
         """
+        # Create temp directory for nanoplot
+        temp_dir="nanoplot_tmp"
+        mkdir -p "\$temp_dir"
+        export TMPDIR="\$(realpath "\$temp_dir")"
+
         NanoPlot $input_format $reads \
             -o ${sample}_nanoplot \
             -p ${sample}_ \
