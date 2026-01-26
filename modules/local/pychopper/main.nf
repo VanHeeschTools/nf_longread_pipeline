@@ -40,7 +40,7 @@ process pychopper {
 
         echo "Pychopper completed for sample: $sample"
 
-            cat <<-END_VERSIONS > versions.yml
+        cat <<-END_VERSIONS > versions.yml
         "${task.process}":
             pychopper: \$(python -c "import pychopper; print(f'pychopper,{pychopper.__version__}')")
         END_VERSIONS

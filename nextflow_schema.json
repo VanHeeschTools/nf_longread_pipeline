@@ -1,0 +1,253 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/VanHeeschTools/nf_longread_pipeline/master/nextflow_schema.json",
+    "title": "nf-ribo-pipeline parameters",
+    "description": "Transcriptome analysis including mapping, assembly, expression quantification and fusion calling from RNA-seq long read data.",
+    "type": "object",
+    "defs": {
+        "path_specifications": {
+            "title": "Path specifications",
+            "type": "object",
+            "description": "Input and output path defs",
+            "default": "",
+            "properties": {
+                "sample_sheet": {
+                    "type": "string",
+                    "schema": "assets/schema_input.json",
+                    "format": "file-path",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to comma-separated file containing information about the samples in the experiment."
+                },
+                "sample": {
+                    "type": "string",
+                    "defaul": "null",
+                    "description": "Optional: single sample name."
+                },
+                "input": {
+                    "type": "string",
+                    "description": "path to folder where fastq files of samples are stored"
+                },
+                "outdir": {
+                    "type": "string",
+                    "default": "\"${params.project_folder}/output\"",
+                    "description": "name of the output folder"
+                }       
+            },
+            "required": [
+                "sample_sheet",
+                "input",
+                "outdir"
+            ]
+        },
+        "reference_files": {
+            "title": "Reference files",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "reference_gtf": {
+                    "type": "string",
+                    "description": "Reference annotation GTF"
+                },
+                "reference_genome": {
+                    "type": "string",
+                    "description": "Reference genome fasta file"
+                },
+                "transcriptome_fasta": {
+                    "type": "string",
+                    "description": "The reference transcriptome fasta file"
+                },
+                "jaffal_data_dir": {
+                    "type": "string",
+                    "description": "Path to reference directory containing files required for running JAFFAL"
+                },
+                "output_prefix": {
+                    "type": "string",
+                    "description": "Output prefix used for certain outputs",
+                    "default": "output"
+                },
+                "masked_fasta": {
+                    "type": "string",
+                    "description": "Optional masked fasta",
+                    "default": "null"
+                },        
+                "refseq_gtf": {
+                    "type": "string",
+                    "description": "Optional path to refseq gtf file",
+                    "default": "null"
+                },
+                "multiqc_config": {
+                    "type": "string",
+                    "description": "Path to multiqc yaml config file for custom plots",
+                    "default": "assets/multiqc.yaml"
+                }
+        },
+            "required": [
+                "reference_gtf",
+                "reference_genome",
+                "transcriptome_fasta"
+            ]
+        },
+
+        "modules": {
+            "title": "Modules",
+            "type": "object",
+            "description": "Toggles for the different pipeline modules",
+            "default": "",
+            "properties": {
+                "qc": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Toggle for quality control module"
+                },
+                "assembly": {
+                    "type": "boolean",
+                    "description": "Toggle for the assembly module",
+                    "default": true
+                },
+                "expression": {
+                    "type": "boolean",
+                    "description": "Toggle for the expresssion module",
+                    "default": true
+                },
+                "fusions": {
+                    "type": "boolean",
+                    "description": "Toggle for the fusions module",
+                    "default": true
+                }
+            }
+        },
+
+        "extended_pipeline_options": {
+            "title": "Extended pipeline options",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "nanoplot_extra_opts": {
+                    "type": "string",
+                    "description": "Extra NanoPlot arguments",
+                    "default": "--color skyblue --dpi 300 -f pdf"
+                },
+                "direct_rna": {
+                    "type": "boolean",
+                    "description": "If set to true, pychopper is skipped",
+                    "default": false
+                },
+                "cdna_kit": {
+                    "type": "string",
+                    "description": "Used cdna kit"
+                },                
+                "custom_primers_file": {
+                    "type": "string",
+                    "description": "FASTA with custom primers"
+                },
+                "pychopper_backend": {
+                    "type": "string",
+                    "description": "Should be either edlib or phmm",
+                    "default" :"edlib"
+                },
+                "pychopper_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for pychopper"
+                },
+                "store_full_length_reads": {
+                    "type": "boolean",
+                    "description": "Save full-length reads after trimming",
+                    "default": false
+                },
+                "minimap_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for Minimap2"
+                },
+                "minimap_index_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for Minimap2 index creation"
+                },
+                "minimap_transcripts_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for Minimap2 transcripts "
+                },                
+                "stringtie_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for StringTie"
+                },
+                "min_tpm": {
+                    "type": "integer",
+                    "description": "Minimum TPM value to include a transcript in the assembled transcriptome",
+                    "default": 0.1
+                },
+                "min_occurrence": {
+                    "type": "integer",
+                    "description": "Minimum occurrence to include a transcript in the assembled transcriptome",
+                    "default": 1
+                },
+                "salmon_extra_opts": {
+                    "type": "string",
+                    "description": "Extra arguments for Salmon",
+                    "default": "ont"
+                },        
+                "genome_version": {
+                    "type": "string",
+                    "description": "Used genome version for JAFFAL database directory"
+                }, 
+                "annotation_version": {
+                    "type": "string",
+                    "description": "Used genome version for JAFFAL database directory"
+                }                                
+            }
+        },
+
+        "optional_path_defs": {
+            "title": "Optional path defs",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "multiqc_config": {
+                    "type": "string",
+                    "description": "Path to multiqc yaml config file for custom plots",
+                    "default": "assets/multiqc.yaml"
+                },
+                "container_folder": {
+                    "type": "string",
+                    "description": "path to container location"
+                }
+            }
+        },
+        "specs": {
+            "title": "Maximum specifications for computational resources",
+            "type": "object",
+            "description": "",
+            "default": "",
+            "properties": {
+                "max_memory": {
+                    "type": "string",
+                    "description": "max memory for each process"
+                },
+                "max_cpus": {
+                    "type": "integer",
+                    "description": "max cpus for each process"
+                },
+                "max_time": {
+                    "type": "string",
+                    "description": "max time for each process"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/defs/reference_files"
+        },
+        {
+            "$ref": "#/defs/modules"
+        },
+        {
+            "$ref": "#/defs/path_specifications"
+        },
+        {
+            "$ref": "#/defs/specs"
+        }
+    ]
+}

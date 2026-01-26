@@ -12,6 +12,8 @@ process jaffal {
         path "*" // Remove after testing
         path "jaffa_results.csv", emit: jaffa_results_csv
         path "jaffa_results.fasta", emit: jaffa_results_fasta
+        path "versions.yml", emit:versions
+
 
     when:
         task.ext.when == null || task.ext.when 
@@ -26,5 +28,10 @@ process jaffal {
             -p refBase=${jaffal_data_dir} \
             /JAFFA/JAFFAL.groovy \
             ${full_length_reads.join(' ')}
+
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}": 
+            "JAFFA version 2.4"
+        END_VERSIONS
         """
 }

@@ -1,5 +1,4 @@
 include { create_minimap2_index; minimap2_transcriptome } from '../modules/local/minimap2/main'
-include { process_alignment_transcriptome } from '../modules/local/process_alignment/main'
 include { salmon; salmon_tables } from '../modules/local/salmon/main'
 include { versions } from '../modules/local/versions/main'
 
@@ -47,5 +46,5 @@ workflow EXPRESSION {
 
     emit:
     salmon_quant = salmon.out.quant
-    //versions = versions.out
+    versions = ch_versions.collect()
 }     

@@ -1,6 +1,6 @@
 process versions {
     input:
-    path versions
+    path versions, stageAs: "?/*"
 
     output:
     path "software_versions.yml"

@@ -20,13 +20,13 @@ process stringtie {
         def reference_command = reference_genome.name != 'NO_FILE' ? "-G $reference_genome" : ''
         
         """
-        stringtie \\
-            $reference_command \\
-            --rf -L -v \\
-            -p $task.cpus \\
-            $extra_opts \\
-            -o ${sample}.gff \\
-            -l $sample \\
+        stringtie \
+            $reference_command \
+            --rf -L -v \
+            -p $task.cpus \
+            $extra_opts \
+            -o ${sample}.gff \
+            -l $sample \
             $bam 2> ${sample}_stringtie.log
 
         cat <<-END_VERSIONS > versions.yml
@@ -34,4 +34,23 @@ process stringtie {
             stringtie: \$(stringtie --version 2>&1)
         END_VERSIONS
         """
+}
+
+process stringtie_samplesheet{
+
+    input:
+        val rows
+
+    output:
+        path "stringtie_samplesheet.csv", emit: stringtie_samplesheet
+
+    when:
+        task.ext.when == null || task.ext.when
+
+    script:
+        """
+        echo "sample_id,gtf,data_type" > "stringtie_samplesheet.csv"
+        ${rows.collect { r -> "${r[0]},${r[1]}" }.join('\n')} >> "stringtie_samplesheet.csv"
+        """
+
 }

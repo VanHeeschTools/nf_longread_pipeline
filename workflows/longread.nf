@@ -1,91 +1,56 @@
+include { validateParameters; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema'
 include { QC }         from '../subworkflows/QC.nf'
 include { ASSEMBLY }   from '../subworkflows/ASSEMBLY.nf'
 include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
 include { FUSIONS }    from '../subworkflows/FUSIONS.nf'
 include { versions }   from '../modules/local/versions/main'
 include { multiqc }    from '../modules/local/multiqc/main'
-
-
-// Function to validate samplesheet inputs (can be moved to a separate module)
-def validateSampleSheet(sample_sheet) {
-    return sample_sheet
-        .splitCsv(header:true, sep:',')
-        .map { row -> 
-            if (!row.barcode && !row.sample) {
-                error "Invalid sample sheet entry: ${row}. Either 'barcode' or 'sample' columns are required."
-            }
-            [row.barcode ?: row.sample, row.sample ?: row.barcode]
-        }
-}
-
-
-def checkInputVar(input_dir) {
-    if (file(input_dir).isDirectory()) {
-        log.info "Processing directory: ${params.input}"
-        def input_ch2 = Channel
-                .fromPath("${params.input}/**/*.{fastq,fastq.gz,bam}")
-                .ifEmpty { error "No input files found in directory: ${params.input}" }
-                .map { file -> 
-                    def parent = file.parent.name
-                    def barcode = params.barcode ?: (parent == params.input.tokenize('/')[-1] ? 'barcode' : parent)
-                    //return tuple(sample, file)
-                    [[id:"${barcode}"], [barcode:"${barcode}"], file]
-                }
-    } else {
-        error "Input not specified. Please provide --input parameter."
-    }
-}
+include { buildSampleFileChannel; copy_samplesheet } from '../modules/local/helperfunctions/main.nf'
 
 
 workflow LONGREAD {
     main:
+
+    // Validate input parameters
+    validateParameters()
+
+    // Print summary of supplied parameters
+    log.info paramsSummaryLog(workflow)
+
     // Sample sheet handling with error check
     if (params.sample_sheet) {
         if (!file(params.sample_sheet).exists()) {
-            error "Sample sheet file does not exist: ${params.sample_sheet}"
-        }
-        log.info "Using sample sheet: ${params.sample_sheet}"
-        sample_sheet_ch = channel.fromPath(params.sample_sheet)
-    } else {
-        log.warn "No sample sheet provided, continuing without it."
-        sample_sheet_ch = channel.empty()
-    }
-
-
-    // Define inputs from params
-    // If sample sheet is provided, use it to update sample names
-    if (sample_sheet_ch) {
-        sample_map = validateSampleSheet(sample_sheet_ch)
-
-        //Exit if sample_map is empty
-        if (!sample_map) {
-            log.error("ERROR: sample_map is null or empty! Check your sample sheet.")
+            error "ERROR: Sample sheet file does not exist: ${params.sample_sheet}"
             System.exit(1)
         }
+        log.info "Using sample sheet: ${params.sample_sheet}"
+        def sample_sheet_ch = Channel.fromPath(params.sample_sheet)
+        
+         // Read samplesheet and create sampe input channel
+        input_data = buildSampleFileChannel(sample_sheet_ch, params.input)
+        copy_samplesheet(params.sample_sheet, params.input)
+
+    } else {
+        log.error("ERROR: params.sample_sheet is null or empty! Please set this parameter.")
+        System.exit(1)
     }
 
-
+    // Load required files
     reference_genome = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
-
-    ch_test = checkInputVar(params.input)
-    sample_map = sample_map.map{ sample, barcode -> tuple( [id:"${sample}"], [sample:"${sample}"], [barcode:"${barcode}"])}
-    ch_test_comb = sample_map.combine(ch_test.groupTuple(by: [0,1]), by: [0])
-    ch_input2 = ch_test_comb.map{meta, sample, barcode, barcode2, file -> tuple(sample.sample, file)}
 
     // Declare empty channels
     nanoplot_logs = channel.empty()
     pychopper_logs = channel.empty()
     mapping_logs = channel.empty()
     gffcompare_logs = channel.empty()
-    salmon_logs = channel.empty()
 
     if (params.qc) {
         if (params.direct_rna) {
             // Skip PyChopper, treat input as full_length_reads
-            QC(ch_input2, params.direct_rna)
+            QC(input_data, params.direct_rna)
         } else {
-            QC(ch_input2, params.direct_rna)
+            QC(input_data, params.direct_rna)
         }
 
         // Collect logs for MultiQC
@@ -98,7 +63,7 @@ workflow LONGREAD {
 
         if (params.direct_rna) {
             // Use provided reads as full_length_reads
-            full_length_reads = ch_input2
+            full_length_reads = input_data
         } else {
             // If not running QC and not direct RNA, assume pychopper has been run externally
             // and full_length_reads are in the expected directory
@@ -147,12 +112,14 @@ workflow LONGREAD {
     }
 
     // TODO: Collect all versions.yml files
-    //ch_versions = Channel.empty()
-    //ch_versions = ch_versions.mix(MINIMAP2.out.versions)
-    //ch_versions = ch_versions.mix(PROCESS_ALIGNMENT.out.versions)
+    ch_versions = Channel.empty()
+    ch_versions = ch_versions.mix(QC.out.versions)
+    ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
+    ch_versions = ch_versions.mix(EXPRESSION.out.versions)
+    ch_versions = ch_versions.mix(FUSIONS.out.versions)
 
     // Run the VERSIONS process
-    //VERSIONS(ch_versions.collect())
+    versions(ch_versions.collect())
 
     // Collect all output for MultiQC
     multiqc_files = channel.empty()
