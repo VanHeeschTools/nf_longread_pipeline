@@ -9,6 +9,7 @@ process nanoplot {
 
     output:
         path "${sample}_nanoplot", emit: nanoplot_dir
+        path "versions.yml", emit: versions
 
     when:
         task.ext.when == null || task.ext.when
@@ -33,5 +34,10 @@ process nanoplot {
             ${extra_opts}
 
         echo "NanoPlot completed for sample: $sample"
+
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            NanoPlot: \$(NanoPlot -v)
+        END_VERSIONS
         """
 }
