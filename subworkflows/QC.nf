@@ -10,6 +10,7 @@ workflow QC {
     // Create empty channel for versions
     ch_versions = Channel.empty()
 
+    // Run NanoPlot
     nanoplot(reads,
             params.nanoplot_extra_opts)
     //nanoplot_logs = nanoplot.out
@@ -19,11 +20,11 @@ workflow QC {
     if (skip_pychopper) {
         full_length_reads = reads
     } else {
-
         //Check if pychopper custom primers are provided
         //Use the kit if no custom primers are provided
         def primer_opts = params.custom_primers_file ? "-b ${params.custom_primers_file}" : "-k ${params.cdna_kit}"
         
+        // Run pychopper
         pychopper(reads,
                     primer_opts,
                     params.pychopper_backend,

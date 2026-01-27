@@ -36,10 +36,11 @@ process stringtie {
         """
 }
 
+// Create samplesheet showing id, location of StringTie gtf in output samplesheet and data type (longread)
 process stringtie_samplesheet{
 
     input:
-        val rows
+        val gtf_file_location //String, contains sample id and location of StringTie output gtf in output directory
 
     output:
         path "stringtie_samplesheet.csv", emit: stringtie_samplesheet
@@ -48,9 +49,11 @@ process stringtie_samplesheet{
         task.ext.when == null || task.ext.when
 
     script:
-        """
-        echo "sample_id,gtf,data_type" > "stringtie_samplesheet.csv"
-        ${rows.collect { r -> "${r[0]},${r[1]}" }.join('\n')} >> "stringtie_samplesheet.csv"
-        """
+    """
+	cat <<-'EOF' > stringtie_samplesheet.csv
+	sample_id,gtf,data_type
+	${gtf_file_location.collect { r -> "${r[0]},${r[1]},longread" }.join('\n')}
+	EOF
+    """
 
 }

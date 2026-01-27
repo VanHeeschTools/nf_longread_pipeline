@@ -30,11 +30,10 @@ workflow ASSEMBLY {
                 params.stringtie_extra_opts)
     ch_versions = ch_versions.mix(stringtie.out.versions)
 
-
+    // Create tuple containing sample_id and the location of StringTie output gtfs in output directory
     stringtie_meta = stringtie.out.stringtie_gff
         .map { sample, gtf -> [sample, "${params.outdir}/stringtie/${gtf.name}"]}
         .collect(flat:false)
-    stringtie_meta.view()
     stringtie_samplesheet(stringtie_meta)
 
     

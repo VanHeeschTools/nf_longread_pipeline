@@ -28,7 +28,7 @@ workflow LONGREAD {
         
          // Read samplesheet and create sampe input channel
         input_data = buildSampleFileChannel(sample_sheet_ch, params.input)
-        copy_samplesheet(params.sample_sheet, params.input)
+        copy_samplesheet(params.sample_sheet, params.outdir)
 
     } else {
         log.error("ERROR: params.sample_sheet is null or empty! Please set this parameter.")
