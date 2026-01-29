@@ -160,7 +160,7 @@ window.addEventListener("DOMContentLoaded", () => {{
 """
 
 # Remove spaces with underscore
-def changes_id(text):
+def change_id(text):
     return re.sub(r"[^A-Za-z0-9]", "_", text)
 
 # Obtain sample id from directory name
