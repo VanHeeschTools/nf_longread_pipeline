@@ -32,18 +32,17 @@ process stringtie {
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
-            stringtie: \$(stringtie --version 2>&1)
+            StringTie: \$(stringtie --version 2>&1)
         END_VERSIONS
         """
 }
 
 
 process stringtie_summary {
-    label "compareGTF"
 
     input:
-        path gtf_list    
-        val reference_gtf
+        path gff_list       // Path, list of StringTie gff output files
+        val reference_gtf   // Val, reference gtf path
 
     output:
         path "all_samples_stringtie_counts_mqc.tsv", emit: stringtie_multiqc
@@ -51,30 +50,24 @@ process stringtie_summary {
     script:
         """
         OUT="all_samples_stringtie_counts_mqc.tsv"
-        echo -e "Sample\tGenes\tTranscripts\tExons\tKnown_transcripts\tNovel_transcripts" >> "\$OUT"
+        echo -e "Sample\tTranscripts\tExons\tKnown_transcripts\tNovel_transcripts" >> "\$OUT"
 
-        for GTF in ${gtf_list.join(' ')}; do
+        # Iterate over StringTie output gtfs to obtain statistics when comparing to reference gff
+        for GFF in ${gff_list.join(' ')}; do
             # Extract sample_id from filename
-            SAMPLE=\$(basename "\$GTF" .gtf)
+            SAMPLE=\$(basename "\$GFF" .gff)
 
-            transcripts=\$(awk '\$3=="transcript"' "\$GTF" | wc -l)
-            genes=\$(awk -F'\t' '\$3=="transcript" {
-                split(\$9, a, /;/)
-                for (i in a) if (a[i] ~ /gene_id/) {
-                    gsub(/.*gene_id "|"/, "", a[i])
-                    print a[i]
-                }
-            }' "\$GTF" | sort -u | wc -l)
-            exons=\$(awk '\$3=="exon"' "\$GTF" | wc -l)
+            transcripts=\$(awk '\$3=="transcript"' "\$GFF" | wc -l)
+            exons=\$(awk '\$3=="exon"' "\$GFF" | wc -l)
 
-            gffcompare -r "$reference_gtf" -o "\${SAMPLE}_gffcmp" "\$GTF"
+            gffcompare -r "$reference_gtf" -o "\${SAMPLE}_gffcmp" "\$GFF"
             ann="\${SAMPLE}_gffcmp.annotated.gtf"
             
             all=\$(grep -c \$'\ttranscript\t' "\$ann")
             known=\$(grep 'class_code "[=c]"' "\$ann" | grep -c \$'\ttranscript\t')
             novel=\$((all - known))
 
-            echo -e "\$SAMPLE\t\$genes\t\$transcripts\t\$exons\t\$known\t\$novel" >> "\$OUT"
+            echo -e "\$SAMPLE\t\$transcripts\t\$exons\t\$known\t\$novel" >> "\$OUT"
         done
         """
 }
