@@ -14,13 +14,14 @@ suppressPackageStartupMessages({
 # READ ARGS-----------------
 args <- commandArgs(trailingOnly = TRUE)
 
-if (length(args) != 3) {
-  stop("Usage: script.R <quant_paths> <gtf_file> <prefix>")
+if (length(args) != 4) {
+  stop("Usage: script.R <quant_paths> <gtf_file> <prefix> <min_tpm>")
 }
 
 quant_paths <- args[1]
 gtf_file <- args[2]
 prefix <- args[3]
+min_tpm <- as.numeric(args[4])
 
 print(quant_paths)
 
@@ -125,7 +126,7 @@ import_salmon <- function(quant_files) {
       ignoreAfterBar = TRUE,
       dropInfReps = TRUE
     )
-   
+
   } else {
     txi <- tximport(
       files = quant_files,
@@ -223,9 +224,9 @@ write_tsv(txi.name$abundance, gene_name_tpms_file)
 sample_summary <- function(mat, prefix, median = FALSE) {
   df <- data.frame(sample = colnames(mat),
                   #mean_all = colMeans(mat, na.rm = TRUE),
-                  mean_bigger_than_1 = apply(mat, 2, function(x) mean(x[x>1], na.rm=TRUE)))
+                  mean_bigger_than_min = apply(mat, 2, function(x) mean(x[x>min_tpm], na.rm=TRUE)))
   if (median) {
-    df$median_bigger_than_1 <- apply(mat, 2, function(x) median(x[x>1], na.rm=TRUE))
+    df$median_bigger_than_min <- apply(mat, 2, function(x) median(x[x>min_tpm], na.rm=TRUE))
   }
   setNames(df, c("sample", paste0(prefix, "_", names(df)[-1])))
 }
@@ -244,17 +245,15 @@ salmon_qc <- function(quant_files) {
 
 multiqc_table <- Reduce(function(x, y) dplyr::full_join(x, y, by="sample"),
                         list(
-                          #sample_summary(txi$counts, "transcript_counts"),
                           sample_summary(txi$abundance, "transcript_tpms", median=TRUE),
-                          #sample_summary(txi.id$counts, "gene_ID_counts"),
                           sample_summary(txi.id$abundance, "gene_ID_tpms", median=TRUE)
                         ))
-multiqc_table$expressed_transcripts <- colSums(txi$abundance > 1)
-multiqc_table$expressed_genes <- colSums(txi.id$abundance > 1)
+multiqc_table$expressed_transcripts <- colSums(txi$abundance > min_tpm)
+multiqc_table$expressed_genes <- colSums(txi.id$abundance > min_tpm)
 multiqc_table <- dplyr::relocate(
   multiqc_table,
   expressed_transcripts, expressed_genes,
-  .before = transcript_tpms_mean_bigger_than_1)
+  .before = transcript_tpms_mean_bigger_than_min)
 
 multiqc_table <- dplyr::left_join(salmon_qc(quant_files), multiqc_table, by="sample")
 
@@ -263,18 +262,12 @@ name_map <- c(
   num_processed = "Reads Processed",
   num_mapped = "Reads Mapped",
   percent_mapped = "Percent Mapped",
-  expressed_transcripts = "Transcripts with TPM >1",
-  expressed_genes = "Genes with TPM >1",
-  #transcript_counts_mean_all = "Transcript Mean Counts",
-  #transcript_counts_mean_bigger_than_1 = "Transcript Mean Counts >1",
-  #transcript_tpms_mean_all = "Transcript Mean TPM",
-  transcript_tpms_mean_bigger_than_1= "Transcript Mean TPM >1",
-  transcript_tpms_median_bigger_than_1 = "Transcript Median TPM >1",
-  #gene_ID_counts_mean_all = "Gene Mean Counts",
-  #gene_ID_counts_mean_bigger_than_1 = "Gene Mean Counts >1",
-  #gene_ID_tpms_mean_all = "Gene Mean TPM",
-  gene_ID_tpms_mean_bigger_than_1 = "Gene Mean TPM >1",
-  gene_ID_tpms_median_bigger_than_1 = "Gene Median TPM >1"
+  expressed_transcripts = paste("Transcripts with TPM >",min_tpm),
+  expressed_genes = paste("Genes with TPM >",min_tpm),
+  transcript_tpms_mean_bigger_than_min= paste("Transcript Mean TPM >",min_tpm),
+  transcript_tpms_median_bigger_than_min = paste("Transcript Median TPM >",min_tpm),
+  gene_ID_tpms_mean_bigger_than_min = paste("Gene Mean TPM >",min_tpm),
+  gene_ID_tpms_median_bigger_than_min = paste("Gene Median TPM >",min_tpm)
 )
 
 multiqc_table <- multiqc_table %>%
@@ -286,11 +279,3 @@ write.table(multiqc_table,
             row.names = FALSE,
             col.names = TRUE,
             quote = FALSE)
-
-# Copy TPMs
-tpm_filtered <- as.data.frame(txi$abundance)
-# Replace low values with NA
-tpm_filtered[tpm_filtered < 1] <- NA
-# Write outputs
-readr::write_tsv(tpm_filtered, paste0(prefix, "_transcript_tpms_mqc.tsv"), col_names = TRUE)
-

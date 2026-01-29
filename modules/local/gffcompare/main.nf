@@ -1,18 +1,33 @@
+// Join StringTie output gtf paths into a single list
+process make_gtf_list {
+    input:
+        path gtfs   //Path, contains channel of StringTie ouput gtfs
+
+    output:
+        path "gtf_list.txt"
+
+    script:
+        """
+        printf "%s\n" ${gtfs.join(' ')} > gtf_list.txt
+        """
+}
+
+// Run gffcompare on list of StringTie output gtfs
 process merge_gtfs {
     label 'gffcompare'
     label 'merge_gtfs'
     label 'process_medium'
 
     input:
-        path gtf_list
-        path reference_gtf
-        path masked_fasta
-        val output_prefix
+        path gtf_list       // Path, file containing paths to StringTie output gtfs
+        path reference_gtf  // Path, reference gtf file
+        path masked_fasta   // Path, masked genome fasta file
+        val output_prefix   // Val, string containing prefix for output
 
     output:
-        path "*.gtf", emit: merged_gtf
-        path "*.stats", emit: stats
-        path "*.tracking", emit: tracking
+        path "${output_prefix}.combined.gtf", emit: merged_gtf
+        path "${output_prefix}.stats", emit: stats
+        path "${output_prefix}.tracking", emit: tracking
         path "versions.yml", emit: versions
 
     when:
@@ -73,8 +88,8 @@ process filter_annotate {
 
     output:
         path "${output_prefix}_novel_filtered.gtf", emit: filtered_gtf
-        path "${output_prefix}_novel_filtered.log"
-        path "${output_prefix}_novel_filtered.tsv"
+        path "${output_prefix}_novel_filtered.log", emit: filtered_log
+        path "${output_prefix}_novel_filtered.tsv", emit: filtered_tsv
 
     when:
         task.ext.when == null || task.ext.when
@@ -94,18 +109,18 @@ process filter_annotate {
 }
 
 
-// Creates a fasta file of the transcript sequence using the reference fasta file and the transcriptome gtf
+// Creates a fasta file of the transcript sequences using the reference fasta file and the transcriptome gtf
 process transcriptome_fasta {
     label "merge_gtfs"
     label "process_low"
 
     input:
-        val gtf     // Merged and filtered transcriptome file
-        path fasta  // Path to input reference fasta file
-        val prefix
+        val gtf     // Merged, and filtered transcriptome file
+        path fasta  // Path, to input reference fasta file
+        val prefix  // Val, string containing output prefix
 
     output:
-        path "*_transcriptome.fa", emit: fasta
+        path "${prefix}_transcriptome.fa", emit: fasta
         path "versions.yml", emit: versions
 
     when:

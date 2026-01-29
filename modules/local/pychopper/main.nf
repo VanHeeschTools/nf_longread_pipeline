@@ -3,10 +3,10 @@ process pychopper {
     label 'process_high'
 
     input:
-        tuple val(sample), path(reads)
-        val primer_opts
-        val backend
-        val extra_opts
+        tuple val(sample), path(reads) // Tuple, contains sample id and fastq file
+        val primer_opts                // Val, either contains custom primers or a primer kit
+        val backend                    // Val, string containing either edlib or phmm
+        val extra_opts                 // Val, potential extra parameters given in config file
 
     output:
         tuple val(sample), path("${sample}_full_length_reads.fastq.gz"), emit: full_length_reads

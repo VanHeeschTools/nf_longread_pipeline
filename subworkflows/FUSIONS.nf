@@ -24,11 +24,13 @@ workflow FUSIONS {
         
         // Define JAFFAL output csv and fasta
         jaffal_results_csv = jaffal.out.jaffa_results_csv
-        jaffa_results_fasta = jaffal.out.jaffa_results_fasta
+        jaffal_results_fasta = jaffal.out.jaffa_results_fasta
+        jaffal_mqc = jaffal.out.jaffa_mqc
 
     emit:
         jaffal_results_csv=jaffal_results_csv
-        jaffal_results_fasta=jaffa_results_fasta
+        jaffal_results_fasta=jaffal_results_fasta
+        jaffal_mqc=jaffal_mqc
         versions=ch_versions
 
 }

@@ -10,6 +10,7 @@ process stringtie {
 
     output:
         tuple val(sample), path("${sample}.gff"), emit: stringtie_gff
+        path("${sample}.gff"), emit: gff_paths
         path "${sample}_stringtie.log", emit: log
         path "versions.yml", emit: versions
 
@@ -36,11 +37,55 @@ process stringtie {
         """
 }
 
-// Create samplesheet showing id, location of StringTie gtf in output samplesheet and data type (longread)
-process stringtie_samplesheet{
+
+process stringtie_summary {
+    label "compareGTF"
 
     input:
-        val gtf_file_location //String, contains sample id and location of StringTie output gtf in output directory
+        path gtf_list    
+        val reference_gtf
+
+    output:
+        path "all_samples_stringtie_counts_mqc.tsv", emit: stringtie_multiqc
+
+    script:
+        """
+        OUT="all_samples_stringtie_counts_mqc.tsv"
+        echo -e "Sample\tGenes\tTranscripts\tExons\tKnown_transcripts\tNovel_transcripts" >> "\$OUT"
+
+        for GTF in ${gtf_list.join(' ')}; do
+            # Extract sample_id from filename
+            SAMPLE=\$(basename "\$GTF" .gtf)
+
+            transcripts=\$(awk '\$3=="transcript"' "\$GTF" | wc -l)
+            genes=\$(awk -F'\t' '\$3=="transcript" {
+                split(\$9, a, /;/)
+                for (i in a) if (a[i] ~ /gene_id/) {
+                    gsub(/.*gene_id "|"/, "", a[i])
+                    print a[i]
+                }
+            }' "\$GTF" | sort -u | wc -l)
+            exons=\$(awk '\$3=="exon"' "\$GTF" | wc -l)
+
+            gffcompare -r "$reference_gtf" -o "\${SAMPLE}_gffcmp" "\$GTF"
+            ann="\${SAMPLE}_gffcmp.annotated.gtf"
+            
+            all=\$(grep -c \$'\ttranscript\t' "\$ann")
+            known=\$(grep 'class_code "[=c]"' "\$ann" | grep -c \$'\ttranscript\t')
+            novel=\$((all - known))
+
+            echo -e "\$SAMPLE\t\$genes\t\$transcripts\t\$exons\t\$known\t\$novel" >> "\$OUT"
+        done
+        """
+}
+
+
+// Create samplesheet showing id, location of StringTie gtf in output samplesheet and data type (longread)
+process write_output_samplesheet{
+
+    input:
+        val minimap2_meta     // Val, string containing sample id and location of Minimap2 output BAM in output directory
+        val gtf_file_location // Val, string containing sample id and location of StringTie output gtf in output directory
 
     output:
         path "stringtie_samplesheet.csv", emit: stringtie_samplesheet
@@ -50,10 +95,12 @@ process stringtie_samplesheet{
 
     script:
     """
-	cat <<-'EOF' > stringtie_samplesheet.csv
-	sample_id,gtf,data_type
-	${gtf_file_location.collect { r -> "${r[0]},${r[1]},longread" }.join('\n')}
-	EOF
+    printf '%s\n' \
+    'sample_id,biomaterial_id,file,file_type,disease_state,seq_type' \
+    ${minimap2_meta.collect { r -> "'${r[0]},null,${r[1]},bam,null,longread'" }.join(' ')} \
+    ${gtf_file_location.collect { r -> "'${r[0]},null,${r[1]},gtf,null,longread'" }.join(' ')} \
+    > stringtie_samplesheet.csv
     """
+
 
 }

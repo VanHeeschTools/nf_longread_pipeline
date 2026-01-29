@@ -4,8 +4,8 @@ process nanoplot {
     label 'process_low'
 
     input:
-        tuple val(sample), path(reads)
-        val extra_opts
+        tuple val(sample), path(reads) // Tuple, contains sample id and fastq file
+        val extra_opts                 // Val, potential extra parameters given in config file
 
     output:
         path "${sample}_nanoplot", emit: nanoplot_dir
@@ -40,4 +40,22 @@ process nanoplot {
             NanoPlot: \$(NanoPlot -v)
         END_VERSIONS
         """
+}
+
+// Run python script that merges NanoPlot html output into a merged html format
+process merge_nanoplot {
+    label 'python'
+
+    input:
+    path html_files // Path, location of nanoplot output dirs containing required html files
+
+    output:
+    path "nanoplot_report_mqc.html"
+
+    script:
+    """
+    merge_nanoplot.py \
+        --input_dirs ${html_files} \
+        --output nanoplot_report_mqc.html
+    """
 }

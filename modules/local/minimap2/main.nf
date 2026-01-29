@@ -4,9 +4,9 @@ process minimap2 {
     label 'process_high'
 
     input:
-        tuple val(sample), path(reads)
-        path reference
-        val extra_opts
+        tuple val(sample), path(reads)  // Tuple, contains sample id and fastq path
+        path reference                  // Path, reference genome file
+        val extra_opts                  // Val, potential extra parameters given in config file
 
     output:
         tuple val(sample), path("${sample}_aligned.sorted.bam"), emit: minimap2_bam
@@ -19,9 +19,6 @@ process minimap2 {
 
     script:
         """
-        echo "Nextflow requested CPUs: ${task.cpus}"
-        echo "Nextflow requested memory: ${task.memory}"
-
         minimap2 \
             -ax splice \
             -t $task.cpus \
@@ -52,8 +49,9 @@ process create_minimap2_index {
     label 'process_high'
 
     input:
-        path reference
-        val extra_opts
+        path reference  // Path, reference genome file
+        val extra_opts  // Val, potential extra parameters given in config file
+
     output:
         path "transcriptome_index.mmi", emit: index
         path "versions.yml", emit: versions
@@ -79,9 +77,9 @@ process minimap2_transcriptome{
     label 'process_high'
 
     input:
-        tuple val(sample), path (fastq_reads)
-        path index 
-        val extra_opts
+        tuple val(sample), path (fastq_reads)  // Tuple, contains sample id and fastq paths
+        path index                             // Path, minimap2 index path
+        val extra_opts                         // Val, potential extra parameters given in config file
 
     output:
         tuple val(sample), path("${sample}_transcripts_aligned.bam"), emit: minimap2_transcriptome_bam

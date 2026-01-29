@@ -1,7 +1,7 @@
 include { minimap2 } from '../modules/local/minimap2/main'
-include { stringtie; stringtie_samplesheet } from '../modules/local/stringtie/main'
+include { stringtie; stringtie_summary; write_output_samplesheet } from '../modules/local/stringtie/main'
 include { seqkit_stats } from '../modules/local/process_alignment/main'
-include { merge_gtfs; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
+include { make_gtf_list; merge_gtfs; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
 
 workflow ASSEMBLY {
     take:
@@ -23,18 +23,27 @@ workflow ASSEMBLY {
     bam_files = minimap2.out.minimap2_bam
         .map { _sample_id, file -> file }.collect()
     seqkit_stats(bam_files)
+
     ch_versions = ch_versions.mix(seqkit_stats.out.versions)
 
+    // Run StringTie
     stringtie(minimap2.out.minimap2_bam,
                 annotation,
                 params.stringtie_extra_opts)
     ch_versions = ch_versions.mix(stringtie.out.versions)
 
+    // Obtain StringTie output stats for MultiQC
+    stringtie_summary(stringtie.out.gff_paths.collect(), annotation)    
+
     // Create tuple containing sample_id and the location of StringTie output gtfs in output directory
+    minimap2_meta = minimap2.out.minimap2_bam
+        .map { sample, bam -> [sample, "${params.outdir}/minimap2/${bam.name}"]}
+        .collect(flat:false)
     stringtie_meta = stringtie.out.stringtie_gff
         .map { sample, gtf -> [sample, "${params.outdir}/stringtie/${gtf.name}"]}
         .collect(flat:false)
-    stringtie_samplesheet(stringtie_meta)
+
+    write_output_samplesheet(minimap2_meta,stringtie_meta)
 
     
     // Set masked_fasta if present
@@ -44,14 +53,15 @@ workflow ASSEMBLY {
         : "${projectDir}/assets/NO_FILE"
     
     // Collect GTF files and create a list file
-    ch_gtf_list = stringtie.out.stringtie_gff.map { it[1] }.collect().map { gtfs ->
-        def gtf_list = file("${workDir}/gtf_list.txt")
-        gtf_list.text = gtfs.join('\n')
-        return gtf_list
-    }
+    gtf_paths = stringtie.out.gff_paths.collect().flatten()
+            .map { it -> it.toString() }
+
+    gtf_list = gtf_paths.collectFile(
+    name: 'gtflist.txt',
+            newLine: true, sort: true )
 
     // Merge all GTFs
-    merge_gtfs(ch_gtf_list, annotation, masked_fasta, params.output_prefix)
+    merge_gtfs(gtf_list, annotation, masked_fasta, params.output_prefix)
     ch_versions = ch_versions.mix(merge_gtfs.out.versions)
 
     // Parse the tracking file into transcript presence/absence in each sample
@@ -74,6 +84,7 @@ workflow ASSEMBLY {
 
 
     emit:
+    stringtie_mqc = stringtie_summary.out.stringtie_multiqc
     transcriptome_gtf = filter_annotate.out.filtered_gtf
     transcriptome_fasta = transcriptome_fasta.out.fasta
     mapping_logs =  minimap2.out.bam_stats.collect()

@@ -14,19 +14,19 @@ workflow EXPRESSION {
     
      // Map against transcriptome
     create_minimap2_index(transcriptome_fasta,
-                    params.minimap_index_extra_opts)
+                            params.minimap_index_extra_opts)
+    index_ch = create_minimap2_index.out.index.first()
+
     ch_versions = ch_versions.mix(create_minimap2_index.out.versions)
 
     minimap2_transcriptome(full_length_reads,
-                            create_minimap2_index.out.index,
+                            index_ch,
                             params.minimap_extra_opts)
     ch_versions = ch_versions.mix(minimap2_transcriptome.out.versions)
 
-    //ch_versions = ch_versions.mix(process_alignment_transcriptome.out.versions)
-
     // Run salmon quant
     salmon(minimap2_transcriptome.out.minimap2_transcriptome_bam,
-            transcriptome_fasta,
+            transcriptome_fasta.first(),
             params.salmon_extra_opts)
     ch_versions = ch_versions.mix(salmon.out.versions)
 
@@ -37,14 +37,11 @@ workflow EXPRESSION {
         name: 'quant_paths.txt',
         newLine: true, sort: true )
 
-    salmon_tables(quant_paths, annotation, "salmon_tables")
-
-    // Combine all version information
-    //versions (
-    //    ch_versions.unique().collectFile(name: 'collated_versions.yml')
-    //)
+    // Salmon output statistics tables
+    salmon_tables(quant_paths, annotation, "salmon_tables", params.min_tpm)
 
     emit:
     salmon_quant = salmon.out.quant
+    salmon_multiqc = salmon_tables.out.salmon_summary
     versions = ch_versions.collect()
 }     

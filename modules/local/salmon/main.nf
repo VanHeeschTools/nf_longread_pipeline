@@ -4,9 +4,9 @@ process salmon {
     label "process_medium"
 
     input:
-        tuple val(sample), path(bam)
-        path ref_transcriptome
-        val extra_opts
+        tuple val(sample), path(bam) // Tuple, containing sample id and minimap2 output bam file
+        path ref_transcriptome       // Path, location of transcriptome fasta file
+        val extra_opts               // Val, potential extra parameters given in config file
 
     output:
         tuple val(sample), path("${sample}/quant.sf"), emit: quant
@@ -33,20 +33,21 @@ process salmon_tables {
     label "process_low"
 
     input:
-        val quant_paths
-        path gtf
-        val prefix
+        val quant_paths // Val, string containing all paths to salmon quant output files
+        path gtf        // Path, reference gtf file
+        val prefix      // Val, string of output prefix
+        val min_tpm     // Val, min_tpm for statistics
 
     output:
         path "${prefix}*"
-        path "${prefix}_multiqc_summary_mqc.tsv", emit: salmon_multiqc
-        path "${prefix}_transcript_tpms_mqc.tsv", emit: salmon_tpm
+        path "${prefix}_multiqc_summary_mqc.tsv", emit: salmon_summary
 
     script:
         """
         salmon_cohort_tables.R \
         ${quant_paths} \
         ${gtf} \
-        ${prefix}
+        ${prefix} \
+        ${min_tpm}
         """
 }

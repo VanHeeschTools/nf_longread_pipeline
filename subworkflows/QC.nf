@@ -1,4 +1,4 @@
-include { nanoplot } from '../modules/local/nanoplot/main'
+include { nanoplot; merge_nanoplot } from '../modules/local/nanoplot/main'
 include { pychopper } from '../modules/local/pychopper/main'
 
 workflow QC {
@@ -15,6 +15,8 @@ workflow QC {
             params.nanoplot_extra_opts)
     //nanoplot_logs = nanoplot.out
     ch_versions.mix(nanoplot.out.versions)
+
+    merge_nanoplot(nanoplot.out.nanoplot_dir.collect())
 
     pychopper_logs = Channel.empty()
     if (skip_pychopper) {
@@ -39,8 +41,9 @@ workflow QC {
     full_length_reads = full_length_reads
 
     // Logs for MultiQC
-    nanoplot_logs = Channel.empty()
+    nanoplot_logs = nanoplot.out.nanoplot_dir.collect()
     pychopper_logs = pychopper_logs
+    nanoplot_html = merge_nanoplot.out
 
     // Versions
     versions = ch_versions.collect()

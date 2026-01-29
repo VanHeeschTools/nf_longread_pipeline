@@ -3,7 +3,7 @@ process seqkit_stats {
     label 'process_medium'
 
     input:
-        val minimap2_bams
+        val minimap2_bams // Val, string containing all paths to minimap2 output bam files
 
     output:
         path "minimap2_bams_seqkit_stats.tsv", emit: seqkit_stats
