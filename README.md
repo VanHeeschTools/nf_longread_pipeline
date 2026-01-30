@@ -456,12 +456,13 @@ head /path/to/sample_sheet.csv
 **Error message:** `Failed to pull Singularity image`
 
 **Solution:**
+Currently you should build/pre-download all containers. 
+In the future there will be the option to get them from the pipeline.
 ```bash
 # Set up Singularity cache directory
 export NXF_SINGULARITY_CACHEDIR=~/.singularity/cache
 mkdir -p $NXF_SINGULARITY_CACHEDIR
 
-# Pre-download container images (optional)
 # Re-run the pipeline; containers will be cached for future runs
 ```
 
