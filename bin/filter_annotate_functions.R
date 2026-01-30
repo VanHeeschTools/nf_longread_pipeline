@@ -88,8 +88,7 @@ filter_tpm_occurrence <- function(gtf_df_tracking,
     tpm_matrix <- matrix(tpm_matrix, ncol = 1)
   }
   tpm_count <- rowSums(tpm_matrix >= min_tpm)
-  to_keep <- tpm_count >= min_occurrence
-  return(to_keep)
+  return(tpm_count)
 }
 
 
@@ -364,6 +363,58 @@ parse_tracking_file_row <- function(row, field_from_last = 2) {
   })
 }
 
+#' Extract sample names from a gffcompare tracking file efficiently
+#'
+#' This function scans a gffcompare tracking data frame column-wise to
+#' recover sample identifiers (q1, q2, ...) without reading the entire
+#' table. For each sample column, the first non-'-' entry is parsed to
+#' extract the sample name. The scan stops early once all sample IDs
+#' have been found.
+#'
+#' Tracking file entries are expected to follow the gffcompare format:
+#' \code{qX:SAMPLENAME|...}. Gene suffixes (e.g. \code{.2}) are removed.
+#'
+#' This function is intended for header discovery and metadata extraction,
+#' not for per-transcript occurrence counting.
+#'
+#' @param tracking_df A data.frame containing a gffcompare tracking file.
+#'   Sample-specific columns must start at \code{start_col}.
+#' @param start_col Integer. Index of the first sample column in
+#'   \code{tracking_df} (default: 5).
+#'
+#' @return A named character vector of sample names, indexed by
+#'   \code{q1}, \code{q2}, ..., with missing samples omitted.
+#'
+#' @export
+extract_samples_from_tracking <- function(tracking_df, start_col = 5) {
+  
+  sample_ids <- rep(NA_character_, ncol(tracking_df) - start_col + 1)
+  names(sample_ids) <- paste0("q", seq_along(sample_ids))
+  
+  for (i in seq_len(nrow(tracking_df))) {
+    
+    row <- tracking_df[i, start_col:ncol(tracking_df), drop = FALSE]
+    
+    for (j in seq_along(row)) {
+      
+      if (is.na(sample_ids[j]) && row[[j]] != "-") {
+        
+        # Parse sample name
+        x <- sub("^q\\d+:", "", row[[j]])
+        x <- sub("\\|.*$", "", x)
+        x <- sub("\\.[0-9]+$", "", x)
+        
+        sample_ids[j] <- x
+      }
+    }
+    
+    # Early exit if all samples found
+    if (all(!is.na(sample_ids))) break
+  }
+  
+  na.omit(sample_ids)
+}
+
 #' Read and parse a tracking file with transcript annotations and TPMs
 #'
 #' This function reads a tracking file output (e.g., from StringTie), extracts transcript and gene
@@ -399,16 +450,16 @@ read_tracking_file <- function(tracking_file) {
   # Read the tracking file
   df <- read.table(tracking_file, header = FALSE, sep = "\t", stringsAsFactors = FALSE)
   
-  # Extract the first 4 columns
-  df_cleaned <- df[, 1:3] %>%
-                  tidyr::separate(V3, into = c("ref_gene_id_annotated", "ref_transcript_id_annotated"),
-                  sep = "\\|",
-                  extra = "merge",
-                  fill = "right")
-  colnames(df_cleaned) <- c("TCONS", "xloc", "ref_gene_id", "ref_transcript_id")
-  
   # Extract TPMs from the remaining columns
   if(ncol(df) > 5) {
+    # Extract the first 4 columns
+    df_cleaned <- df[, 1:3] %>%
+      tidyr::separate(V3, into = c("ref_gene_id", "ref_transcript_id"),
+                      sep = "\\|",
+                      extra = "merge",
+                      fill = "right")
+    colnames(df_cleaned) <- c("transcript_id", "gene_id", "ref_gene_id", "ref_transcript_id")
+    
     # Parse expression from q1,q2... fields
     df_tpm <- df[, 5:ncol(df)] %>%
       apply(1, parse_tracking_file_row) %>%
@@ -416,12 +467,29 @@ read_tracking_file <- function(tracking_file) {
       as.data.frame()
     
       # Add sample names (q1, q2, ...) as column names for the TPMs
-      colnames(df_tpm) <- paste0("TPM_q", 1:ncol(df_tpm))
+      sample_names <- extract_samples_from_tracking(df)
+      colnames(df_tpm) <- paste0("TPM_q", 1:length(sample_names),"_", sample_names)
       
   } else {
+    # If there is only 5 fields the gtf comes from Gffcompare without combining
+    # Genes and transcripts in the gtf are not identified by a TCONS id, but by "sample.gene_nr.[tx_nr]" 
+    df_cleaned <- df %>%
+      tidyr::separate(V3, into = c("ref_gene_id", "ref_transcript_id"),
+                      sep = "\\|",
+                      extra = "merge",
+                      fill = "right") %>%
+      tidyr::separate(V5, into = c("gene_id", "transcript_id", "values"),
+                      sep = "\\|",
+                      extra = "merge",
+                      fill = "right") %>%
+      dplyr::mutate(gene_id = gsub("q1:", "", gene_id)) %>%
+      dplyr::select(transcript_id, gene_id, ref_gene_id, ref_transcript_id)
+
     # Handle singe sample tracking files
     values <-  parse_tracking_file_row(df[,5])
-    df_tpm <- data.frame(TPM_q1 = values)
+    sample_name <- extract_samples_from_tracking(df)
+    df_tpm <- data.frame(values, row.names = NULL)
+    colnames(df_tpm) <- sample_name
   }
 
   
@@ -438,7 +506,7 @@ read_tracking_file <- function(tracking_file) {
 #'
 #' @return A data frame with tracking columns merged in by transcript_id.
 merge_tracking_info <- function(gtf_df, tracking_df) {
-  dplyr::left_join(gtf_df, tracking_df, by = c("transcript_id" = "TCONS"))
+  dplyr::left_join(gtf_df, tracking_df)
 }
 
 #' Fill missing metadata in exon rows with values from transcript rows
@@ -500,7 +568,7 @@ sort_gtf <- function(gtf_df) {
   #Transform to DT for improved speed
   dt <- data.table::as.data.table(gtf_df)
   
-  # 1. Rank genes by coordinate
+  # Step 1: Rank genes by coordinate
   # Get existing gene entries
   gene_rows <- dt[type == "gene", .(seqnames, start, end, strand, gene_id)]
   
@@ -523,7 +591,7 @@ sort_gtf <- function(gtf_df) {
   # Merge gene_rank
   dt <- gene_dt[, .(gene_id, gene_rank)][dt, on = "gene_id"]
   
-  # 2: Rank transcripts within genes
+  # Step 2: Rank transcripts within genes
   trans_dt <- dt[type == "transcript", .(gene_id, transcript_id,seqnames, start, end)]
   trans_dt <- unique(trans_dt)
   data.table::setorder(trans_dt, seqnames,  start, -end, gene_id, transcript_id)
@@ -533,22 +601,118 @@ sort_gtf <- function(gtf_df) {
   dt <- trans_dt[, .(transcript_id, transcript_rank)][dt, on = "transcript_id"]
   
   # Step 3: Feature type priority
-  known_order <- c("gene", "transcript", "exon", "CDS")
+  priority_map <- c(
+    gene = 1,
+    transcript = 2,
+    exon = 3,
+    CDS = 4,
+    UTR = 4, 
+    start_codon = 4
+  )
+  
   dt[, feature_rank := data.table::fifelse(
-    type %in% known_order,
-    match(type, known_order),
-    length(known_order) + as.integer(as.factor(type))
+    type %in% names(priority_map),
+    priority_map[as.character(type)],
+    4 + as.integer(as.factor(type))
   )]
   
   # Step 4: Start-aware feature position
-  data.table::setorder(dt, gene_rank, transcript_rank, feature_rank, seqnames, start, -end)
-  dt[, feature_position := .I]
+  dt[type %in% c("exon", "CDS", "UTR", "start_codon") & strand == "+",  feature_order := start]
+  dt[type %in% c("exon", "CDS", "UTR", "start_codon") & strand == "-",  feature_order := -start]
+  
+  dt[!type %in% c("exon", "CDS", "UTR", "start_codon"), feature_order := start]
   
   # Step 5: Final sort
-  data.table::setorder(dt, gene_rank, transcript_rank, feature_rank, feature_position)
+  data.table::setorder(dt, gene_rank, transcript_rank, feature_rank, feature_order)
   
   # Step 6: Cleanup temporary columns
-  dt[, c("gene_rank", "transcript_rank", "feature_rank", "feature_position") := NULL]
+  dt[, c("gene_rank", "transcript_rank", "feature_rank", "feature_order") := NULL]
   
   return(dt)
+}
+
+#' Write a GTF file with a custom header
+#'
+#' Exports a \code{GRanges} object to GTF format, prepends a custom header,
+#' and cleans up trailing attribute fields introduced during export.
+#'
+#' @param gtf_obj A \code{GRanges} object containing GTF annotations.
+#' @param output_path Character string. Path to the output GTF file.
+#' @param gtf_header Character vector containing header lines (e.g. comments starting with \code{#}).
+#'
+#' @return Invisibly returns \code{NULL}. Writes a GTF file to disk.
+#' @export
+write_gtf_with_header <- function(gtf_obj, output_path, gtf_header) {
+  message(paste(Sys.time(), "Exporting GTF ..."), sep = "\t")
+  export(object = gtf_obj, con = output_path, format = "gtf", version = "2")
+  lines <- readLines(output_path)
+  modified_lines <- c(gtf_header, gsub("; ID.*", "", lines))
+  writeLines(modified_lines, output_path)
+}
+
+#' Generate a transcript evidence summary
+#'
+#' Produces a formatted summary string reporting the number of transcripts
+#' per evidence category based on the \code{transcript_evidence} column.
+#'
+#' @param gtf A data frame or tibble containing GTF annotations. Must include
+#'   columns \code{type} and \code{transcript_evidence}.
+#'
+#' @return A single character string summarizing transcript evidence counts.
+#' @export
+generate_tx_evidence_summary <- function(gtf) {
+  tx_evidence_counts <- table(
+    gtf %>% 
+      filter(type == "transcript") %>% 
+      pull(transcript_evidence)
+  )
+  
+  paste0(
+    "Transcript evidence summary (long-read support):\n",
+    paste(
+      sprintf("  - %-18s : %8d",
+              names(tx_evidence_counts),
+              as.integer(tx_evidence_counts)),
+      collapse = "\n"
+    )
+  )
+}
+
+#' Exit early with reference-only outputs
+#'
+#' Handles early termination of the pipeline when no novel transcripts
+#' are detected. Writes a reference-only GTF, empty info table, and
+#' a log file including transcript evidence summary.
+#'
+#' @param gtf_ref_df Data frame containing reference GTF annotations.
+#' @param output_gtf_path Character string. Path to the output GTF file.
+#' @param output_info_path Character string. Path to the output info table.
+#' @param output_log_path Character string. Path to the output log file.
+#' @param gtf_header Character vector containing GTF header lines.
+#' @param exit_message Character string printed to the console on exit.
+#' @param log_entries Optional character vector of additional log entries
+#'   to append to the log file.
+#'
+#' @return Invisibly returns \code{NULL}. Writes output files to disk.
+#' @export
+early_exit_reference_only <- function(gtf_ref_df, output_gtf_path, output_info_path, output_log_path,
+                                      gtf_header, exit_message, log_entries = NULL) {
+  message(exit_message)
+  
+  output_gtf <- GenomicRanges::makeGRangesFromDataFrame(gtf_ref_df, keep.extra.columns = TRUE)
+  write_gtf_with_header(output_gtf, output_gtf_path, gtf_header)
+  write.table(data.frame(), file = output_info_path, sep = "\t", row.names = FALSE, quote = FALSE)
+  
+  cat(paste(gtf_header, collapse = "\n"), "\n", file = output_log_path)
+  
+  if (!is.null(log_entries) && length(log_entries) > 0) {
+    for (entry in log_entries) {
+      cat(entry, file = output_log_path, append = TRUE)
+    }
+  }
+  
+  cat("__________________________________________\n", file = output_log_path, append = TRUE)
+  cat(generate_tx_evidence_summary(gtf_ref_df), "\n", file = output_log_path, append = TRUE)
+  
+  message(paste(Sys.time(), "Early exit completed."), sep = "\t")
 }
