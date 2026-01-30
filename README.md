@@ -498,12 +498,3 @@ nextflow run main.nf ... -resume -v
 ## Citation & Acknowledgments
 
 **Authors:** Marina Reixachs Sole, Edwin van der Werf, Rico Hagelaar
-
-**Key Tools Used:**
-- NanoPlot: De Coster et al., Bioinformatics, 2018
-- Pychopper: Scharfe et al., biorxiv, 2022
-- Minimap2: Li, Bioinformatics, 2018
-- StringTie: Pertea et al., Nature Biotechnology, 2015
-- Salmon: Patro et al., Nature Methods, 2017
-- JAFFAL: Davidson et al., bioRxiv, 2023
-
