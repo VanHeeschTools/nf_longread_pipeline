@@ -87,9 +87,10 @@ process filter_annotate {
         val output_prefix   // Val, output basename
 
     output:
-        path "${output_prefix}_novel_filtered.gtf", emit: filtered_gtf
-        path "${output_prefix}_novel_filtered.log", emit: filtered_log
-        path "${output_prefix}_novel_filtered.tsv", emit: filtered_tsv
+        path "${output_prefix}.filtered.extended_reference.gtf", emit: filtered_gtf
+        path "${output_prefix}.filtered.novel_transcripts.gtf", emit: novel_gtf
+        path "${output_prefix}.filtered.log", emit: filtered_log
+        path "${output_prefix}.filtered.tsv", emit: filtered_tsv
 
     when:
         task.ext.when == null || task.ext.when
@@ -102,7 +103,7 @@ process filter_annotate {
         "${gtf_tracking}" \
         "${min_occurrence}" \
         "${min_tpm}" \
-        "${output_prefix}_novel_filtered" \
+        "${output_prefix}.filtered" \
         "${projectDir}/bin/" \
         "${refseq_gtf}"
         """
