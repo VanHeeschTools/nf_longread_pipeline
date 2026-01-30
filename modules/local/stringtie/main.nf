@@ -81,7 +81,7 @@ process write_output_samplesheet{
         val gtf_file_location // Val, string containing sample id and location of StringTie output gtf in output directory
 
     output:
-        path "stringtie_samplesheet.csv", emit: stringtie_samplesheet
+        path "output_samplesheet.csv", emit: output_samplesheet
 
     when:
         task.ext.when == null || task.ext.when
@@ -92,7 +92,7 @@ process write_output_samplesheet{
     'sample_id,biomaterial_id,file,file_type,disease_state,seq_type' \
     ${minimap2_meta.collect { r -> "'${r[0]},null,${r[1]},bam,null,longread'" }.join(' ')} \
     ${gtf_file_location.collect { r -> "'${r[0]},null,${r[1]},gtf,null,longread'" }.join(' ')} \
-    > stringtie_samplesheet.csv
+    > output_samplesheet.csv
     """
 
 
