@@ -497,9 +497,7 @@ nextflow run main.nf ... -resume -v
 
 ## Citation & Acknowledgments
 
-**Pipeline Authors:** Marina Reixachs Sole, Edwin van der Werf, Rico Hagelaar
-
-**Developed at:** Van Heesch Lab, University Medical Center Utrecht
+**Authors:** Marina Reixachs Sole, Edwin van der Werf, Rico Hagelaar
 
 **Key Tools Used:**
 - NanoPlot: De Coster et al., Bioinformatics, 2018
@@ -509,6 +507,3 @@ nextflow run main.nf ... -resume -v
 - Salmon: Patro et al., Nature Methods, 2017
 - JAFFAL: Davidson et al., bioRxiv, 2023
 
-## License
-
-[Add license information if applicable]
