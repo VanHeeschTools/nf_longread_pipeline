@@ -1,7 +1,7 @@
 // StringTie process using input BAM file and reference genome
 process stringtie {
     tag "$sample"
-    label 'process_high'
+    label 'process_medium'
 
     input:
         tuple val(sample), path(bam) // Tuple, sample id and BAM file
@@ -39,6 +39,7 @@ process stringtie {
 
 
 process stringtie_summary {
+    label 'process_superlow'
 
     input:
         path gff_list       // Path, list of StringTie gff output files
@@ -75,6 +76,7 @@ process stringtie_summary {
 
 // Create samplesheet showing id, location of StringTie gtf in output samplesheet and data type (longread)
 process write_output_samplesheet{
+    label 'process_superlow'
 
     input:
         val minimap2_meta     // Val, string containing sample id and location of Minimap2 output BAM in output directory

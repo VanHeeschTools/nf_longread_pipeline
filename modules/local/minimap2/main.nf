@@ -1,5 +1,6 @@
 // Map reads to reference genome using Minimap2
 process minimap2 {
+    tag "$sample"
     label 'minimap2'
     label 'process_high'
 

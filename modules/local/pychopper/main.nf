@@ -1,6 +1,5 @@
 process pychopper {
     tag "$sample"
-    label 'process_high'
 
     input:
         tuple val(sample), path(reads) // Tuple, contains sample id and fastq file

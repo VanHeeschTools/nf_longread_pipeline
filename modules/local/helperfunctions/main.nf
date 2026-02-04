@@ -49,7 +49,7 @@ def validateSampleSheet(sample_sheet) {
 // Function to obtain all samples in given data directory linked to all given barcodes
 def readInputDirectory(input_dir) {
 
-    return Channel
+    return channel
         .fromPath("${input_dir}/**/*.{fastq,fastq.gz,bam}")
         .ifEmpty { error "No input files found in directory: ${input_dir}" }
         .map { file ->

@@ -1,4 +1,6 @@
 process versions {
+    label 'process_superlow'
+
     input:
     path versions, stageAs: "?/*"
 

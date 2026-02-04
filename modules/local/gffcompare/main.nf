@@ -14,9 +14,7 @@ process make_gtf_list {
 
 // Run gffcompare on list of StringTie output gtfs
 process merge_gtfs {
-    label 'gffcompare'
-    label 'merge_gtfs'
-    label 'process_medium'
+    label 'process_low'
 
     input:
         path gtf_list       // Path, file containing paths to StringTie output gtfs
@@ -53,8 +51,7 @@ process merge_gtfs {
 }
 
 process parse_tracking {
-    label 'merge_gtfs'
-    label 'python'
+    label 'process_superlow'
 
     input:
         path tracking_file
@@ -74,8 +71,7 @@ process parse_tracking {
 
 // Define process for transcript filtering and annotation
 process filter_annotate {
-    label "merge_gtfs"
-    label "process_medium"
+    label "process_low"
 
     input:
         val reference_gtf   // Path, input reference gtf file
@@ -112,7 +108,6 @@ process filter_annotate {
 
 // Creates a fasta file of the transcript sequences using the reference fasta file and the transcriptome gtf
 process transcriptome_fasta {
-    label "merge_gtfs"
     label "process_low"
 
     input:
