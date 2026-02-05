@@ -1,19 +1,21 @@
-process MULTIQC {
-    label 'process_low'
+// Run MultiQC using given directories and multiqc yaml file
+process multiqc {
+    label 'process_superlow'
     
     input:
-    path '*'
-    path config
+        path multiqc_files, stageAs: "?/*" // Path, multiqc input files staged in individual folders
+        path config                        // Path, multiqc config file found in /assets
+        path software_versions_mqc         // Path, file containing the versions of tools used in the pipeline
 
     output:
-    path "multiqc_report.html", emit: report
+        path "multiqc_report.html", emit: report
+
+    when:
+        task.ext.when == null || task.ext.when
 
     script:
-    """
-    #Add projectDir for custom multiqc scripts
-    export PYTHONPATH=$projectDir/bin:$PYTHONPATH
-
-    multiqc . -f -c $config
-    """
+        """
+        multiqc . -v -f -c $config
+        """
 }
 

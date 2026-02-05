@@ -1,18 +1,35 @@
-process VERSIONS {
+process versions {
     input:
-    path versions
+    path versions, stageAs: "?/*"
 
     output:
     path "software_versions.yml"
-    path "software_versions_mqc.yml"
+    path "software_mqc_versions.yml", emit: software_versions_mqc
 
     script:
     """
     # Combine all version files into a single file
     cat $versions > software_versions.yml
 
-    # Create a simplified version for MultiQC
-    echo "---" > software_versions_mqc.yml
-    cat software_versions.yml | grep -v "^{" >> software_versions_mqc.yml
+    # Simplify for MultiQC:
+    awk '
+    {
+        # Skip lines without a space
+        if (index(\$0, " ") == 0) next
+
+        split(\$0, f, " ")
+        tool = f[1]
+        ver  = f[2]
+
+        gsub(":", "", tool)
+
+        if (tool == "" || ver == "") next
+        # Skip already seen tools
+        if (seen[tool]++) next
+
+        print tool ": \\"" ver "\\""
+    }
+    ' software_versions.yml > software_mqc_versions.yml
     """
 }
+

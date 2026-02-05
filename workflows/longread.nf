@@ -1,82 +1,77 @@
-include { QC } from '../subworkflows/QC.nf'
-include { ASSEMBLY } from '../subworkflows/ASSEMBLY.nf'
+include { QC }         from '../subworkflows/QC.nf'
+include { ASSEMBLY }   from '../subworkflows/ASSEMBLY.nf'
 include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
-include { VERSIONS } from '../modules/local/versions/main'
-include { MULTIQC } from '../modules/local/multiqc/main'
+include { FUSIONS }    from '../subworkflows/FUSIONS.nf'
+include { versions }   from '../modules/local/versions/main'
+include { multiqc }    from '../modules/local/multiqc/main'
+include { buildSampleFileChannel; copy_samplesheet } from '../modules/local/helperfunctions/main.nf'
+include { validateParameters; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema'
 
-// Function to validate samplesheet inputs (can be moved to a separate module)
-def validateSampleSheet(sample_sheet) {
-    return sample_sheet
-        .splitCsv(header:true, sep:',')
-        .map { row -> 
-            if (!row.barcode && !row.sample) {
-                error "Invalid sample sheet entry: ${row}. Either 'barcode' or 'sample' columns are required."
-            }
-            [row.barcode ?: row.sample, row.sample ?: row.barcode]
-        }
-}
 
 workflow LONGREAD {
-    take:
-    input_ch
-    sample_sheet_ch
-
     main:
-    // Define inputs from params
-    // If sample sheet is provided, use it to update sample names
-    if (sample_sheet_ch) {
-        sample_map = validateSampleSheet(sample_sheet_ch)
- 
-        //Exit if sample_map is empty
-        if (!sample_map) {
-            log.error("ERROR: sample_map is null or empty! Check your sample sheet.")
+
+    // Validate input parameters
+    validateParameters()
+
+    // Print summary of supplied parameters
+    log.info paramsSummaryLog(workflow)
+
+    // Sample sheet handling with error check
+    if (params.sample_sheet) {
+        if (!file(params.sample_sheet).exists()) {
+            error "ERROR: Sample sheet file does not exist: ${params.sample_sheet}"
             System.exit(1)
         }
+        log.info "Using sample sheet: ${params.sample_sheet}"
+        def sample_sheet_ch = Channel.fromPath(params.sample_sheet)
+        
+         // Read samplesheet and create sampe input channel
+        input_data = buildSampleFileChannel(sample_sheet_ch, params.input)
+        copy_samplesheet(params.sample_sheet, params.outdir)
 
-        input_ch = input_ch.join(sample_map, by: 0)
-                    .map { barcode, file, sample -> tuple(sample, file) }
-                    .ifEmpty { 
-                        log.error("""
-                        ERROR: input_ch is empty!
-                        - Check the structure of your input directory.
-                        - Parent directories must match the sample names in the sample sheet.
-                        - Check your sample sheet for misspelled sample names.
-                        """.stripIndent())
-                        System.exit(1)
-                    }
+    } else {
+        log.error("ERROR: params.sample_sheet is null or empty! Please set this parameter.")
+        System.exit(1)
     }
-    
-    reference = file(params.reference_genome, checkIfExists: true)
+
+    // Load required files
+    reference_genome = file(params.reference_genome, checkIfExists: true)
     annotation = file(params.reference_gtf, checkIfExists: true)
+
+    // Declare empty channels
+    nanoplot_logs = channel.empty()
+    pychopper_logs = channel.empty()
+    mapping_logs = channel.empty()
 
     if (params.qc) {
         if (params.direct_rna) {
             // Skip PyChopper, treat input as full_length_reads
-            QC(input_ch, params.direct_rna)
+            QC(input_data, params.direct_rna)
         } else {
-            QC(input_ch, params.direct_rna)
+            QC(input_data, params.direct_rna)
         }
+
         // Collect logs for MultiQC
         nanoplot_logs = QC.out.nanoplot_logs.collect()
         pychopper_logs = QC.out.pychopper_logs.collect()
-        //  Collect full_length_reads for downstream steps
+        nanoplot_html = QC.out.nanoplot_html.collect()
+        
+        // Collect full_length_reads for downstream steps
         full_length_reads = QC.out.full_length_reads
     } else {
-        // If QC is skipped, set empty channels for logs
-        nanoplot_logs = Channel.empty()
-        pychopper_logs = Channel.empty()
 
         if (params.direct_rna) {
             // Use provided reads as full_length_reads
-            full_length_reads = input_ch
+            full_length_reads = input_data
         } else {
             // If not running QC and not direct RNA, assume pychopper has been run externally
             // and full_length_reads are in the expected directory
             // Use Channel.fromPath to collect files
-            full_length_reads = Channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
+            full_length_reads = channel.fromPath("${params.outdir}/pychopper/full_length_reads/*.{fastq,fq,fastq.gz,fq.gz}")
                 // Check if channel is empty and provide error message
                 .ifEmpty {
-                     error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
+                    error "Full length reads not found in ${params.outdir}/pychopper/full_length_reads. Please run QC step, provide full length reads, or set --direct-rna to skip pychopper."
                 }
                 // Mimic tuple(sample, file) structure from input_ch
                 // Replace _full_length_reads and extensions from filename to get sample name
@@ -88,15 +83,11 @@ workflow LONGREAD {
     }
 
     if (params.assembly) {
-        ASSEMBLY(full_length_reads, reference, annotation)
-        transcriptome_fasta = ASSEMBLY.out.fasta
+        ASSEMBLY(full_length_reads, reference_genome, annotation)
+        stringtie_mqc = ASSEMBLY.out.stringtie_mqc
+        transcriptome_fasta = ASSEMBLY.out.transcriptome_fasta
         mapping_logs = ASSEMBLY.out.mapping_logs.collect()
-        gffcompare_logs = ASSEMBLY.out.gffcompare_logs.collect()
-        mapping_logs = Channel.empty()
-        gffcompare_logs = Channel.empty()
     } else {
-        mapping_logs = Channel.empty()
-        gffcompare_logs = Channel.empty()
         log.warn "Assembly step skipped."
 
         //Assign transcriptome fasta if expression is true
@@ -111,26 +102,40 @@ workflow LONGREAD {
     }
 
     if (params.expression) {    
-        EXPRESSION(full_length_reads, transcriptome_fasta)
-    } else {
-        log.warn "Expression analysis skipped."
-        salmon_logs = Channel.empty()
+        EXPRESSION(full_length_reads, transcriptome_fasta, annotation)
+        salmon_multiqc = EXPRESSION.out.salmon_multiqc
     }
 
-    // TODO: Collect all versions.yml files
-    //ch_versions = Channel.empty()
-    //ch_versions = ch_versions.mix(MINIMAP2.out.versions)
-    //ch_versions = ch_versions.mix(PROCESS_ALIGNMENT.out.versions)
+
+    if (params.fusions) {
+        FUSIONS(full_length_reads,
+            params.jaffal_data_dir,
+            params.genome_version,
+            params.annotation_version)
+        
+        jaffal_mqc = FUSIONS.out.jaffal_mqc
+    }
+
+    // Collect all tool versions
+    ch_versions = Channel.empty()
+    ch_versions = ch_versions.mix(QC.out.versions)
+    ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
+    ch_versions = ch_versions.mix(EXPRESSION.out.versions)
+    ch_versions = ch_versions.mix(FUSIONS.out.versions)
 
     // Run the VERSIONS process
-    //VERSIONS(ch_versions.collect())
+    versions(ch_versions.collect())
+    software_versions_mqc = versions.out.software_versions_mqc
 
     // Collect all output for MultiQC
-    multiqc_files = Channel.empty()
+    multiqc_files = channel.empty()
     if (params.qc) multiqc_files = multiqc_files.mix(nanoplot_logs)
     if (params.qc) multiqc_files = multiqc_files.mix(pychopper_logs)
+    if (params.qc) multiqc_files = multiqc_files.mix(nanoplot_html)
+    if (params.assembly) multiqc_files = multiqc_files.mix(stringtie_mqc)
     if (params.assembly) multiqc_files = multiqc_files.mix(mapping_logs)
-    if (params.assembly) multiqc_files = multiqc_files.mix(gffcompare_logs)
+    if (params.expression) multiqc_files = multiqc_files.mix(salmon_multiqc)
+    if (params.fusions) multiqc_files = multiqc_files.mix(jaffal_mqc)
 
     // Convert to list and check if empty
     multiqc_input = multiqc_files.collect().map { files -> 
@@ -138,13 +143,13 @@ workflow LONGREAD {
     }
 
     // Run MultiQC only if there are input files
-    MULTIQC_REPORT = Channel.empty()
+    MULTIQC_REPORT = channel.empty()
     multiqc_input.branch {
         run: it != null
         skip: it == null
     }.set { multiqc_branch }
     
-    MULTIQC(multiqc_branch.run, file(params.multiqc_config))
+    multiqc(multiqc_branch.run, file(params.multiqc_config), software_versions_mqc)
 
     // For the skip branch, emit an empty channel
     multiqc_branch.skip
@@ -152,11 +157,11 @@ workflow LONGREAD {
         .set { MULTIQC_REPORT }
 
     // Merge the MultiQC outputs
-    MULTIQC_REPORT = MULTIQC_REPORT.mix(MULTIQC.out.report)
+    MULTIQC_REPORT = MULTIQC_REPORT.mix(multiqc.out.report)
 
     emit:
-    full_length_reads = params.qc ? QC.out.full_length_reads : Channel.empty()
-    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome : Channel.empty()
-    expression = params.expression ? EXPRESSION.out.salmon_quant : Channel.empty()
+    full_length_reads = params.qc ? QC.out.full_length_reads : channel.empty()
+    merged_gtf = params.assembly ? ASSEMBLY.out.transcriptome_gtf : channel.empty()
+    expression = params.expression ? EXPRESSION.out.salmon_quant : channel.empty()
     multiqc_report = MULTIQC_REPORT 
 }

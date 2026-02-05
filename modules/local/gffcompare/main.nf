@@ -1,150 +1,137 @@
-process GFFCOMPARE {
-    label 'gffcompare'
-    label 'process_medium'
-
+// Join StringTie output gtf paths into a single list
+process make_gtf_list {
     input:
-    tuple val(sample), path(gtf)
-    path reference_gtf
-    path masked_fasta
-
+        path gtfs   //Path, contains channel of StringTie ouput gtfs
 
     output:
-    tuple val(sample), path("${sample}.annotated.gtf"), emit: annotated_gtf
-    path "${sample}_gffcompare.stats", emit: stats
-    path "${sample}.tracking", emit: tracking
-    path "versions.yml", emit: versions
+        path "gtf_list.txt"
 
     script:
-    def gtf_command = reference_gtf.name != 'NO_FILE' ? "-r $reference_gtf" : ''
-    def masked_fasta_command = masked_fasta.name != 'NO_FILE' ? "-s $masked_fasta" : ''
-
-    """
-    gffcompare \
-        -V \
-        ${gtf_command} \
-        ${masked_fasta_command} \
-        -o "${sample}" \
-        $gtf
-
-    mv ${sample}.stats ${sample}_gffcompare.stats
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        gffcompare: \$(gffcompare --version 2>&1 | sed 's/^gffcompare v//')
-    END_VERSIONS
-    """
+        """
+        printf "%s\n" ${gtfs.join(' ')} > gtf_list.txt
+        """
 }
 
-process MERGE_GTFS {
+// Run gffcompare on list of StringTie output gtfs
+process merge_gtfs {
+    label 'process_low'
     label 'gffcompare'
-    label 'merge_gtfs'
-    label 'process_medium'
 
     input:
-    path gtf_list
-    path reference_gtf
-    path masked_fasta
-    val output_prefix
+        path gtf_list       // Path, file containing paths to StringTie output gtfs
+        path reference_gtf  // Path, reference gtf file
+        path masked_fasta   // Path, masked genome fasta file
+        val output_prefix   // Val, string containing prefix for output
 
     output:
-    path "*.gtf", emit: merged_gtf
-    path "*.stats", emit: stats
-    path "*.tracking", emit: tracking
-    path "versions.yml", emit: versions
+        path "${output_prefix}.combined.gtf", emit: merged_gtf
+        path "${output_prefix}.stats", emit: stats
+        path "${output_prefix}.tracking", emit: tracking
+        path "versions.yml", emit: versions
+
+    when:
+        task.ext.when == null || task.ext.when
 
     script:
-    def gtf_command = reference_gtf.name != 'NO_FILE' ? "-r $reference_gtf" : ''
-    def masked_fasta_command = masked_fasta.name != 'NO_FILE' ? "-s $masked_fasta" : ''
+        def gtf_command = reference_gtf.name != 'NO_FILE' ? "-r $reference_gtf" : ''
+        def masked_fasta_command = masked_fasta.name != 'NO_FILE' ? "-s $masked_fasta" : ''
 
-    """
-    gffcompare \
-        -V \
-        ${gtf_command} \
-        ${masked_fasta_command} \
-        -o "${output_prefix}" \
-        -i "${gtf_list}"
+        """
+        gffcompare \
+            -V \
+            ${gtf_command} \
+            ${masked_fasta_command} \
+            -o "${output_prefix}" \
+            -i "${gtf_list}"
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        gffcompare: \$(gffcompare --version 2>&1 | sed 's/^gffcompare v//')
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            gffcompare: \$(gffcompare --version 2>&1 | sed 's/^gffcompare v//')
+        END_VERSIONS
+        """
 }
 
-process PARSE_TRACKING {
-    label 'merge_gtfs'
+process parse_tracking {
+    label 'process_superlow'
     label 'python'
 
     input:
-    path tracking_file
-    val output_prefix
+        path tracking_file
+        val output_prefix
 
     output:
-    path "${output_prefix}_transcript_presence.tsv"
+        path "${output_prefix}_transcript_presence.tsv"
+
+    when:
+        task.ext.when == null || task.ext.when
 
     script:
-    """
-    python ${projectDir}/bin/parse_tracking.py ${tracking_file} ${output_prefix}
-    """
+        """
+        python ${projectDir}/bin/parse_tracking.py ${tracking_file} ${output_prefix}
+        """
 }
 
 // Define process for transcript filtering and annotation
-process FILTER_ANNOTATE {
-    label "merge_gtfs"
-    label "process_medium"
-
-    input:
-    val reference_gtf   // Path to the input reference gtf file
-    val refseq_gtf     // Path to the refseq gtf file (optional)
-    path gtf_novel      // Path to the merged gtf file
-    path gtf_tracking   // Path to the tracking file created by the merge step
-    val min_occurrence  // Val contatining the minimum occurence of transcripts for filtering (defaults to 1)
-    val min_tpm         // Val containing the minium tpm of transcripts for filtering (defaults to 0.1)
-    val output_prefix // Val containing output basename
-
-    output:
-    path "${output_prefix}_novel_filtered.gtf", emit: filtered_gtf
-    path "${output_prefix}_novel_filtered.log"
-    path "${output_prefix}_novel_filtered.tsv"
-
-    script:
-    """
-    filter_annotate.R \
-    "${reference_gtf}" \
-    "${gtf_novel}" \
-    "${gtf_tracking}" \
-    "${min_occurrence}" \
-    "${min_tpm}" \
-    "${output_prefix}_novel_filtered" \
-    "${projectDir}/bin/" \
-    "${refseq_gtf}"
-    """
-}
-
-
-// Creates a fasta file of the transcript sequence using the reference fasta file and the transcriptome gtf
-process TRANSCRIPTOME_FASTA {
-    label "merge_gtfs"
+process filter_annotate {
     label "process_low"
 
     input:
-    val gtf    // Merged and filtered transcriptome file
-    path fasta  // Path to input reference fasta file
-    val prefix
+        val reference_gtf   // Path, input reference gtf file
+        val refseq_gtf      // Path, refseq gtf file (optional)
+        path gtf_novel      // Path, merged gtf file
+        path gtf_tracking   // Path, tracking file created by the merge step
+        val min_occurrence  // Val, minimum occurence of transcripts for filtering (defaults to 1)
+        val min_tpm         // Val, minium tpm of transcripts for filtering (defaults to 0.1)
+        val output_prefix   // Val, output basename
 
     output:
-    path "*_transcriptome.fa", emit: fasta
-    path "versions.yml", emit: versions
+        path "${output_prefix}.filtered.extended_reference.gtf", emit: filtered_gtf
+        path "${output_prefix}.filtered.novel_transcripts.gtf", emit: novel_gtf
+        path "${output_prefix}.filtered.log", emit: filtered_log
+        path "${output_prefix}.filtered.tsv", emit: filtered_tsv
 
+    when:
+        task.ext.when == null || task.ext.when
 
     script:
-    """
-    gffread -w ${prefix}_transcriptome.fa -g ${fasta} ${gtf}
+        """
+        filter_annotate.R \
+        "${reference_gtf}" \
+        "${gtf_novel}" \
+        "${gtf_tracking}" \
+        "${min_occurrence}" \
+        "${min_tpm}" \
+        "${output_prefix}.filtered" \
+        "${projectDir}/bin/" \
+        "${refseq_gtf}"
+        """
+}
 
-    # Generate versions.yml
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        gffread: \$(gffread --version 2>&1)
-    END_VERSIONS
-    """
+
+// Creates a fasta file of the transcript sequences using the reference fasta file and the transcriptome gtf
+process transcriptome_fasta {
+    label "process_low"
+
+    input:
+        val gtf     // Merged, and filtered transcriptome file
+        path fasta  // Path, to input reference fasta file
+        val prefix  // Val, string containing output prefix
+
+    output:
+        path "${prefix}_transcriptome.fa", emit: fasta
+        path "versions.yml", emit: versions
+
+    when:
+        task.ext.when == null || task.ext.when
+
+    script:
+        """
+        gffread -w ${prefix}_transcriptome.fa -g ${fasta} ${gtf}
+
+        # Generate versions.yml
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            gffread: \$(gffread --version 2>&1)
+        END_VERSIONS
+        """
 }

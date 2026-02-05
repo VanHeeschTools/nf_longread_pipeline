@@ -1,24 +1,50 @@
-include { MINIMAP2 } from '../modules/local/minimap2/main'
-include { PROCESS_ALIGNMENT } from '../modules/local/process_alignment/main'
-include { STRINGTIE } from '../modules/local/stringtie/main'
-include { MERGE_GTFS; GFFCOMPARE; PARSE_TRACKING; FILTER_ANNOTATE; TRANSCRIPTOME_FASTA } from '../modules/local/gffcompare/main'
+include { minimap2 } from '../modules/local/minimap2/main'
+include { stringtie; stringtie_summary; write_output_samplesheet } from '../modules/local/stringtie/main'
+include { seqkit_stats } from '../modules/local/process_alignment/main'
+include { make_gtf_list; merge_gtfs; parse_tracking; filter_annotate; transcriptome_fasta } from '../modules/local/gffcompare/main'
 
 workflow ASSEMBLY {
     take:
-    reads // Trimmed and oriented reads
-    reference // Reference genome
-    annotation // Reference gtf
+    reads            // Trimmed and oriented reads
+    reference_genome // Reference genome
+    annotation       // Reference gtf
 
     main: 
-    MINIMAP2(reads,
-                reference,
+    // Create empty channel for versions
+    ch_versions = Channel.empty()
+
+    minimap2(reads,
+                reference_genome,
                 params.minimap_extra_opts)
+    ch_versions = ch_versions.mix(minimap2.out.versions)
 
-    PROCESS_ALIGNMENT(MINIMAP2.out.sam)
+    
+    // Only keep the bam file outputs of minimap2
+    bam_files = minimap2.out.minimap2_bam
+        .map { _sample_id, file -> file }.collect()
+    seqkit_stats(bam_files)
 
-    STRINGTIE(PROCESS_ALIGNMENT.out.bam,
+    ch_versions = ch_versions.mix(seqkit_stats.out.versions)
+
+    // Run StringTie
+    stringtie(minimap2.out.minimap2_bam,
                 annotation,
                 params.stringtie_extra_opts)
+    ch_versions = ch_versions.mix(stringtie.out.versions)
+
+    // Obtain StringTie output stats for MultiQC
+    stringtie_summary(stringtie.out.gff_paths.collect(), annotation)    
+
+    // Create tuple containing sample_id and the location of StringTie output gtfs in output directory
+    minimap2_meta = minimap2.out.minimap2_bam
+        .map { sample, bam -> [sample, "${params.outdir}/minimap2/${bam.name}"]}
+        .collect(flat:false)
+    stringtie_meta = stringtie.out.stringtie_gff
+        .map { sample, gtf -> [sample, "${params.outdir}/stringtie/${gtf.name}"]}
+        .collect(flat:false)
+
+    write_output_samplesheet(minimap2_meta,stringtie_meta)
+
     
     // Set masked_fasta if present
     // Point to assets/NO_FILE if not set for proper path reading inside process
@@ -26,44 +52,41 @@ workflow ASSEMBLY {
         ? params.masked_fasta
         : "${projectDir}/assets/NO_FILE"
     
-    // Run GFFCOMPARE on each sample's GTF
-    GFFCOMPARE(STRINGTIE.out.gff, annotation, masked_fasta)
-
     // Collect GTF files and create a list file
-    ch_gtf_list = STRINGTIE.out.gff.map { it[1] }.collect().map { gtfs ->
-        def gtf_list = file("${workDir}/gtf_list.txt")
-        gtf_list.text = gtfs.join('\n')
-        return gtf_list
-    }
+    gtf_paths = stringtie.out.gff_paths.collect().flatten()
+            .map { it -> it.toString() }
+
+    gtf_list = gtf_paths.collectFile(
+    name: 'gtflist.txt',
+            newLine: true, sort: true )
 
     // Merge all GTFs
-    MERGE_GTFS(ch_gtf_list, annotation, masked_fasta, params.output_prefix)
+    merge_gtfs(gtf_list, annotation, masked_fasta, params.output_prefix)
+    ch_versions = ch_versions.mix(merge_gtfs.out.versions)
 
     // Parse the tracking file into transcript presence/absence in each sample
-    PARSE_TRACKING(MERGE_GTFS.out.tracking, params.output_prefix)
+    parse_tracking(merge_gtfs.out.tracking, params.output_prefix)
 
     // Filter anotation 
     // TODO require GTF
-    FILTER_ANNOTATE(annotation,
+    filter_annotate(annotation,
                     params.refseq_gtf ?: "",
-                    MERGE_GTFS.out.merged_gtf,
-                    MERGE_GTFS.out.tracking, 
+                    merge_gtfs.out.merged_gtf,
+                    merge_gtfs.out.tracking, 
                     params.min_occurrence,
                     params.min_tpm,
                     params.output_prefix)
 
-    TRANSCRIPTOME_FASTA(FILTER_ANNOTATE.out.filtered_gtf,
-                        reference,
+    transcriptome_fasta(filter_annotate.out.filtered_gtf,
+                        reference_genome,
                         params.output_prefix)
+    ch_versions = ch_versions.mix(transcriptome_fasta.out.versions)
 
-    FILTER_ANNOTATE.out.filtered_gtf.view()
-    TRANSCRIPTOME_FASTA.out.fasta.view()
-    PROCESS_ALIGNMENT.out.stats.collect().view()
-    GFFCOMPARE.out.stats.collect().view()
 
     emit:
-    transcriptome = FILTER_ANNOTATE.out.filtered_gtf
-    fasta = TRANSCRIPTOME_FASTA.out.fasta
-    mapping_logs = PROCESS_ALIGNMENT.out.stats.collect()
-    gffcompare_logs = GFFCOMPARE.out.stats.collect()
+    stringtie_mqc = stringtie_summary.out.stringtie_multiqc
+    transcriptome_gtf = filter_annotate.out.filtered_gtf
+    transcriptome_fasta = transcriptome_fasta.out.fasta
+    mapping_logs =  minimap2.out.bam_stats.collect()
+    versions = ch_versions.collect()
 }

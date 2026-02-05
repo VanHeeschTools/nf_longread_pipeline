@@ -1,54 +1,30 @@
-process PROCESS_ALIGNMENT {
-    label 'samtools'
-    label 'process_high'
-
-    input:
-    tuple val(sample), path(sam)
-
-    output:
-    tuple val(sample), path("*.bam"), emit: bam
-    tuple val(sample), path("*.bam.bai"), emit: bai
-    path("*_mapping.stats"), emit: stats
-    path "versions.yml", emit: versions
-
-    //TODO filter unmapped reads
-    script:
-    """
-    samtools sort -@ $task.cpus -o ${sample}.bam $sam
-
-    samtools index ${sample}.bam
-
-    samtools stats ${sample}.bam > ${sample}_mapping.stats
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-    END_VERSIONS
-    """
-}
-
-//TODO add process generate alignment stats with sekqit
-
-process PROCESS_ALIGNMENT_TRANSCRIPTOME {
-    label 'samtools'
-    label 'remap'
+// Run seqkit to get statistics from minimap2 output BAM files
+process seqkit_stats {
     label 'process_medium'
 
     input:
-    tuple val(sample), path(sam)
+        val minimap2_bams // Val, string containing all paths to minimap2 output bam files
 
     output:
-    tuple val(sample), path("*.bam"), emit: bam
-    path "versions.yml", emit: versions
+        path "minimap2_bams_seqkit_stats.tsv", emit: seqkit_stats
+        path "versions.yml", emit:versions
 
-
+    when:
+        task.ext.when == null || task.ext.when
+    
     script:
-    """
-    samtools view -@ ${task.cpus} -Sb ${sam} > "${sample}.bam"
+        """
+        # Run seqkit bam stats and write std error to ouput file, removes file paths
+        seqkit bam \
+        -j ${task.cpus} \
+        -s \
+        ${minimap2_bams.join(' ')} \
+        2>&1 | awk 'NR==1{print; next} {sub(".*/","",\$NF); print}' \
+        > minimap2_bams_seqkit_stats.tsv
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            \$(seqkit version)
+        END_VERSIONS
+        """
 }
