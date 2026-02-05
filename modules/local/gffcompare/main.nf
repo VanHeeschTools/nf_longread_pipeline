@@ -15,6 +15,7 @@ process make_gtf_list {
 // Run gffcompare on list of StringTie output gtfs
 process merge_gtfs {
     label 'process_low'
+    label 'gffcompare'
 
     input:
         path gtf_list       // Path, file containing paths to StringTie output gtfs
