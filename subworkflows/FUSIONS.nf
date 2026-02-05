@@ -20,7 +20,7 @@ workflow FUSIONS {
             jaffal_data_dir,
             genome_version,
             annotation_version)
-        ch_versions.mix(jaffal.out.versions)
+        ch_versions = ch_versions.mix(jaffal.out.versions)
         
         // Define JAFFAL output csv and fasta
         jaffal_results_csv = jaffal.out.jaffa_results_csv
