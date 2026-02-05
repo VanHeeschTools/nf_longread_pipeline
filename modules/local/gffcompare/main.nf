@@ -53,6 +53,7 @@ process merge_gtfs {
 
 process parse_tracking {
     label 'process_superlow'
+    label 'python'
 
     input:
         path tracking_file
