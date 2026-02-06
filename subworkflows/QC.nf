@@ -5,6 +5,7 @@ workflow QC {
     take:
     reads // Input reads from fastq
     skip_pychopper // Whether to skip pychopper (for direct RNA-seq)
+    sample_ids
 
     main:
     // Create empty channel for versions
@@ -16,7 +17,7 @@ workflow QC {
     //nanoplot_logs = nanoplot.out
     ch_versions.mix(nanoplot.out.versions)
 
-    merge_nanoplot(nanoplot.out.nanoplot_dir.collect())
+    merge_nanoplot(nanoplot.out.nanoplot_dir.collect(), sample_ids)
 
     pychopper_logs = Channel.empty()
     if (skip_pychopper) {

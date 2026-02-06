@@ -174,8 +174,9 @@ def remove_sample_prefix(filename, sample_id):
         return base[len(sample_id) + 1 :]
     return base
 
-def main(input_dirs, output_file):
+def main(input_dirs, output_file, sample_order_input):
     plot_map = {}
+    sample_order = sample_order_input.split(',')
 
     for nanoplot_dir in input_dirs:
         sample_id = get_sample_id(nanoplot_dir)
@@ -196,24 +197,33 @@ def main(input_dirs, output_file):
 
     body = ""
 
-    for plot_name, samples in plot_map.items():
+    # Iterate over plot sections
+    for plot_name in plot_map.keys():
+        samples = plot_map[plot_name]
         plot_id = change_id(plot_name)
+
         body += f"<div class='plot-section' id='{plot_id}'>\n"
         body += f"<h2>{plot_name}</h2>\n<div class='button-row'>\n"
 
-        for sample_id in samples:
-            body += (
-                f"<button data-sample='{sample_id}' "
-                f"onclick=\"showSample('{plot_id}', '{sample_id}')\">"
-                f"{sample_id}</button>\n"
-            )
+        # Use sample_order from input samplesheet to order buttons
+        for sample_id in sample_order:
+            if sample_id in samples:
+                body += (
+                    f"<button data-sample='{sample_id}' "
+                    f"onclick=\"showSample('{plot_id}', '{sample_id}')\">"
+                    f"{sample_id}</button>\n"
+                )
 
         body += "</div>\n"
 
-        for sample_id, html in samples.items():
-            body += f"<div id='{plot_id}_{sample_id}' class='plot-wrapper'>\n{html}\n</div>\n"
+        # Add plot divs for this plot section
+        for sample_id in sample_order:
+            if sample_id in samples:
+                html = samples[sample_id]
+                body += f"<div id='{plot_id}_{sample_id}' class='plot-wrapper'>\n{html}\n</div>\n"
 
-        body += "</div>\n"
+        body += "</div>\n"  # close plot-section
+
 
     with open(output_file, "w", encoding="utf-8") as out:
         out.write(HTML_TEMPLATE.format(css=CSS, body=body))
@@ -223,5 +233,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dirs", nargs="+", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--sample_order_input", required=True)
+
     args = parser.parse_args()
-    main(args.input_dirs, args.output)
+    main(args.input_dirs, args.output, args.sample_order_input)

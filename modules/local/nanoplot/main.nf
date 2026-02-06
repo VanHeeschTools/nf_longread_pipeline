@@ -48,6 +48,7 @@ process merge_nanoplot {
 
     input:
     path html_files // Path, location of nanoplot output dirs containing required html files
+    val sample_order_list
 
     output:
     path "nanoplot_report_mqc.html"
@@ -56,6 +57,7 @@ process merge_nanoplot {
     """
     merge_nanoplot.py \
         --input_dirs ${html_files} \
-        --output nanoplot_report_mqc.html
+        --output nanoplot_report_mqc.html \
+        --sample_order ${sample_order_list.join(',')}
     """
 }

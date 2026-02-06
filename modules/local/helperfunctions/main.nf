@@ -34,6 +34,19 @@ def copy_samplesheet(String input, String outdir) {
     return true
 }
 
+// Read samplesheet and emit sample IDs in file order
+def readSampleIds(samplesheet) {
+    Channel
+        .fromPath(samplesheet)
+        .splitCsv(header: true)
+        .map { row ->
+            if (!row.sample && !row.barcode) {
+                error "Invalid samplesheet row: ${row}. 'sample' or 'barcode' is required."
+            }
+            row.sample ?: row.barcode
+        }
+}
+
 // Function to validate samplesheet inputs
 def validateSampleSheet(sample_sheet) {
     return sample_sheet
@@ -49,7 +62,7 @@ def validateSampleSheet(sample_sheet) {
 // Function to obtain all samples in given data directory linked to all given barcodes
 def readInputDirectory(input_dir) {
 
-    return channel
+    return Channel
         .fromPath("${input_dir}/**/*.{fastq,fastq.gz,bam}")
         .ifEmpty { error "No input files found in directory: ${input_dir}" }
         .map { file ->
@@ -75,4 +88,3 @@ def buildSampleFileChannel(sample_sheet_ch, input_dir) {
             tuple(sample, files)
         }
 }
-

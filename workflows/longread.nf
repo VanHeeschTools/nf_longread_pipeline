@@ -4,7 +4,7 @@ include { EXPRESSION } from '../subworkflows/EXPRESSION.nf'
 include { FUSIONS }    from '../subworkflows/FUSIONS.nf'
 include { versions }   from '../modules/local/versions/main'
 include { multiqc }    from '../modules/local/multiqc/main'
-include { buildSampleFileChannel; copy_samplesheet } from '../modules/local/helperfunctions/main.nf'
+include { buildSampleFileChannel; readSampleIds; copy_samplesheet } from '../modules/local/helperfunctions/main.nf'
 include { validateParameters; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema'
 
 
@@ -29,7 +29,9 @@ workflow LONGREAD {
          // Read samplesheet and create sampe input channel
         input_data = buildSampleFileChannel(sample_sheet_ch, params.input)
         copy_samplesheet(params.sample_sheet, params.outdir)
-
+        
+        // Obtain ids from samplesheet in given order
+        sample_ids = readSampleIds(params.sample_sheet).collect()
     } else {
         log.error("ERROR: params.sample_sheet is null or empty! Please set this parameter.")
         System.exit(1)
@@ -47,9 +49,9 @@ workflow LONGREAD {
     if (params.qc) {
         if (params.direct_rna) {
             // Skip PyChopper, treat input as full_length_reads
-            QC(input_data, params.direct_rna)
+            QC(input_data, params.direct_rna, sample_ids)
         } else {
-            QC(input_data, params.direct_rna)
+            QC(input_data, params.direct_rna, sample_ids)
         }
 
         // Collect logs for MultiQC
