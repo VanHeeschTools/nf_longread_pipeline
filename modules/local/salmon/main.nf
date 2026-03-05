@@ -32,7 +32,6 @@ process salmon {
 process salmon_tables {
 
     label "process_low"
-    containerOptions '--entrypoint='
 
     input:
         tuple val(ids), path("inputs/*") // Val, string containing all paths to salmon quant output files
