@@ -30,15 +30,11 @@ workflow EXPRESSION {
             params.salmon_extra_opts)
     ch_versions = ch_versions.mix(salmon.out.versions)
 
-     // Write the paths of the salmon_quasi output files to a text file
-    quant_paths = salmon.out.quant
-        .map { _sample, it -> it.toString() }
-        .collectFile(
-        name: 'quant_paths.txt',
-        newLine: true, sort: true )
+    // Write the paths of the salmon_quasi output files to a text file
+    quant_files_only = salmon.out.quant.collect()
 
     // Salmon output statistics tables
-    salmon_tables(quant_paths, annotation, "salmon_tables", params.min_tpm)
+    salmon_tables(quant_files_only, annotation, "salmon_tables", params.min_tpm)
 
     emit:
     salmon_quant = salmon.out.quant

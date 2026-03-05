@@ -31,9 +31,10 @@ process salmon {
 process salmon_tables {
 
     label "process_low"
+    containerOptions '--entrypoint='
 
     input:
-        val quant_paths // Val, string containing all paths to salmon quant output files
+        tuple val(ids), path("inputs/*") // Val, string containing all paths to salmon quant output files
         path gtf        // Path, reference gtf file
         val prefix      // Val, string of output prefix
         val min_tpm     // Val, min_tpm for statistics
@@ -44,8 +45,11 @@ process salmon_tables {
 
     script:
         """
+        # Place all file names into txt file for the R script to parse
+        find -L inputs/ -name "quant.sf" > local_quant_paths.txt
+        
         salmon_cohort_tables.R \
-        ${quant_paths} \
+        local_quant_paths.txt \
         ${gtf} \
         ${prefix} \
         ${min_tpm}
