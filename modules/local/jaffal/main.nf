@@ -50,8 +50,8 @@ process jaffal {
 
 
         cat <<-END_VERSIONS > versions.yml
-        "${task.process}": 
-            "JAFFA version 2.4"
+        "${task.process}":
+            JAFFA: 2.4
         END_VERSIONS
         """
 }

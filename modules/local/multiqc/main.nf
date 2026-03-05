@@ -1,6 +1,6 @@
 // Run MultiQC using given directories and multiqc yaml file
 process multiqc {
-    label 'process_low'
+    label 'process_superlow'
     
     input:
         path multiqc_files, stageAs: "?/*" // Path, multiqc input files staged in individual folders

@@ -1,7 +1,7 @@
 // Create longread statistics, figures and reports using NanoPlot
 process nanoplot {
     tag "$sample"
-    label 'process_low'
+    label 'process_low_long'
 
     input:
         tuple val(sample), path(reads) // Tuple, contains sample id and fastq file
@@ -44,7 +44,7 @@ process nanoplot {
 
 // Run python script that merges NanoPlot html output into a merged html format
 process merge_nanoplot {
-    label 'python'
+    label 'process_superlow'
 
     input:
     path html_files // Path, location of nanoplot output dirs containing required html files

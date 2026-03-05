@@ -1,6 +1,7 @@
 process salmon {
     // Count transcripts using Salmon.
     // library type is specified as forward stranded (-l SF) as it should have either been through pychopper or come from direct RNA reads.
+    tag "$sample"
     label "process_medium"
 
     input:

@@ -1,7 +1,7 @@
 // StringTie process using input BAM file and reference genome
 process stringtie {
     tag "$sample"
-    label 'process_high'
+    label 'process_medium'
 
     input:
         tuple val(sample), path(bam) // Tuple, sample id and BAM file
