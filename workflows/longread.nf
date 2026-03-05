@@ -36,7 +36,7 @@ workflow LONGREAD {
     }
 
     // Load required files
-    reference_genome = file(params.reference_genome, checkIfExists: true)
+    reference_genome = [file(params.reference_genome, checkIfExists: true), file("${params.reference_genome}.fai", checkIfExists: true)]
     annotation = file(params.reference_gtf, checkIfExists: true)
 
     // Declare empty channels
@@ -118,10 +118,10 @@ workflow LONGREAD {
 
     // Collect all tool versions
     ch_versions = Channel.empty()
-    ch_versions = ch_versions.mix(QC.out.versions)
-    ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
-    ch_versions = ch_versions.mix(EXPRESSION.out.versions)
-    ch_versions = ch_versions.mix(FUSIONS.out.versions)
+    if (params.qc)  ch_versions = ch_versions.mix(QC.out.versions)
+    if (params.assembly) ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
+    if (params.expression) ch_versions = ch_versions.mix(EXPRESSION.out.versions)
+    if (params.fusions) ch_versions = ch_versions.mix(FUSIONS.out.versions)
 
     // Run the VERSIONS process
     versions(ch_versions.collect())

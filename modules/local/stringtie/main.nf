@@ -39,10 +39,12 @@ process stringtie {
 
 
 process stringtie_summary {
+    label 'process_superlow'
+    label 'gffcompare'
 
     input:
         path gff_list       // Path, list of StringTie gff output files
-        val reference_gtf   // Val, reference gtf path
+        path reference_gtf   // Val, reference gtf path
 
     output:
         path "all_samples_stringtie_counts_mqc.tsv", emit: stringtie_multiqc
@@ -60,7 +62,7 @@ process stringtie_summary {
             transcripts=\$(awk '\$3=="transcript"' "\$GFF" | wc -l)
             exons=\$(awk '\$3=="exon"' "\$GFF" | wc -l)
 
-            gffcompare -r "$reference_gtf" -o "\${SAMPLE}_gffcmp" "\$GFF"
+            gffcompare -r "${reference_gtf}" -o "\${SAMPLE}_gffcmp" "\$GFF"
             ann="\${SAMPLE}_gffcmp.annotated.gtf"
             
             all=\$(grep -c \$'\ttranscript\t' "\$ann")
@@ -75,6 +77,8 @@ process stringtie_summary {
 
 // Create samplesheet showing id, location of StringTie gtf in output samplesheet and data type (longread)
 process write_output_samplesheet{
+    label 'process_superlow'
+    label 'python'
 
     input:
         val minimap2_meta     // Val, string containing sample id and location of Minimap2 output BAM in output directory

@@ -53,12 +53,7 @@ workflow ASSEMBLY {
         : "${projectDir}/assets/NO_FILE"
     
     // Collect GTF files and create a list file
-    gtf_paths = stringtie.out.gff_paths.collect().flatten()
-            .map { it -> it.toString() }
-
-    gtf_list = gtf_paths.collectFile(
-    name: 'gtflist.txt',
-            newLine: true, sort: true )
+    gtf_list = stringtie.out.gff_paths.collect()
 
     // Merge all GTFs
     merge_gtfs(gtf_list, annotation, masked_fasta, params.output_prefix)
@@ -70,15 +65,18 @@ workflow ASSEMBLY {
     // Filter anotation 
     // TODO require GTF
     filter_annotate(annotation,
-                    params.refseq_gtf ?: "",
+                    params.refseq_gtf ? file(params.refseq_gtf, checkIfExists: true) : [],
                     merge_gtfs.out.merged_gtf,
                     merge_gtfs.out.tracking, 
                     params.min_occurrence,
                     params.min_tpm,
-                    params.output_prefix)
+                    params.output_prefix,
+                    file("${projectDir}/bin/filter_annotate.R"),
+                    file("${projectDir}/bin/filter_annotate_functions.R"))
 
     transcriptome_fasta(filter_annotate.out.filtered_gtf,
-                        reference_genome,
+                        file(params.reference_genome), 
+                        file("${params.reference_genome}.fai"), 
                         params.output_prefix)
     ch_versions = ch_versions.mix(transcriptome_fasta.out.versions)
 

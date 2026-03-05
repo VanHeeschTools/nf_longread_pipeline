@@ -38,12 +38,13 @@ process merge_gtfs {
         def masked_fasta_command = masked_fasta.name != 'NO_FILE' ? "-s $masked_fasta" : ''
 
         """
+        ls *.gff > gtflist.txt
         gffcompare \
             -V \
             ${gtf_command} \
             ${masked_fasta_command} \
             -o "${output_prefix}" \
-            -i "${gtf_list}"
+            -i gtflist.txt
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
@@ -68,7 +69,7 @@ process parse_tracking {
 
     script:
         """
-        python ${projectDir}/bin/parse_tracking.py ${tracking_file} ${output_prefix}
+        parse_tracking.py ${tracking_file} ${output_prefix}
         """
 }
 
@@ -78,13 +79,15 @@ process filter_annotate {
     label "process_medium"
 
     input:
-        val reference_gtf   // Path, input reference gtf file
-        val refseq_gtf      // Path, refseq gtf file (optional)
+        path reference_gtf   // Path, input reference gtf file
+        path refseq_gtf      // Path, refseq gtf file (optional)
         path gtf_novel      // Path, merged gtf file
         path gtf_tracking   // Path, tracking file created by the merge step
         val min_occurrence  // Val, minimum occurence of transcripts for filtering (defaults to 1)
         val min_tpm         // Val, minium tpm of transcripts for filtering (defaults to 0.1)
         val output_prefix   // Val, output basename
+        path "filter_annotate.R"
+        path "filter_annotate_functions.R"
 
     output:
         path "${output_prefix}.filtered.extended_reference.gtf", emit: filtered_gtf
@@ -96,6 +99,7 @@ process filter_annotate {
         task.ext.when == null || task.ext.when
 
     script:
+        def refseq_arg = refseq_gtf ? "${refseq_gtf}" : ""
         """
         filter_annotate.R \
         "${reference_gtf}" \
@@ -105,7 +109,7 @@ process filter_annotate {
         "${min_tpm}" \
         "${output_prefix}.filtered" \
         "${projectDir}/bin/" \
-        "${refseq_gtf}"
+        "${refseq_arg}"
         """
 }
 
@@ -116,8 +120,9 @@ process transcriptome_fasta {
     label "process_low"
 
     input:
-        val gtf     // Merged, and filtered transcriptome file
+        path gtf     // Merged, and filtered transcriptome file
         path fasta  // Path, to input reference fasta file
+        path fai
         val prefix  // Val, string containing output prefix
 
     output:
@@ -129,7 +134,10 @@ process transcriptome_fasta {
 
     script:
         """
-        gffread -w ${prefix}_transcriptome.fa -g ${fasta} ${gtf}
+        gffread \\
+            -w ${prefix}_transcriptome.fa \\
+            -g ${fasta} \\
+            ${gtf}
 
         # Generate versions.yml
         cat <<-END_VERSIONS > versions.yml
