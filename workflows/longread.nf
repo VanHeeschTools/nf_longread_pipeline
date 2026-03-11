@@ -111,7 +111,8 @@ workflow LONGREAD {
         FUSIONS(full_length_reads,
             params.jaffal_data_dir,
             params.genome_version,
-            params.annotation_version)
+            params.annotation_version,
+            params.ctat_lr_data_dir)
         
         jaffal_mqc = FUSIONS.out.jaffal_mqc
     }

@@ -55,3 +55,29 @@ process jaffal {
         END_VERSIONS
         """
 }
+
+process ctat_lr_fusion {
+    label 'process_extreme'
+
+    input:
+        tuple val(sample_id), path(full_length_reads)  // Path, location of input files
+        val ctat_lr_data_dir                           // Path, location of directory with required annotation files
+
+    output:
+        path "*" // Remove after testing
+
+    when:
+        task.ext.when == null || task.ext.when
+
+    script:
+        """
+        ctat-LR-fusion \
+        -T ${full_length_reads} \
+        --genome_lib_dir ${ctat_lr_data_dir} \
+        --CPU ${task.cpus} \
+        --examine_coding_effect \
+        --extract_fusion_LR_fasta ${sample_id}_fusion_evidence_reads.fa \
+        --vis \
+        --output ${sample_id}_ctat_LR_fusion_outdir
+        """
+}
