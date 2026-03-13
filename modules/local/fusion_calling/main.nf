@@ -4,7 +4,7 @@ process jaffal {
 
     input:
         path full_length_reads // Path, location of input files
-        val jaffal_data_dir    // Path, location of directory with required annotation files
+        path jaffal_data_dir    // Path, location of directory with required annotation files
         val genome_version     // String, genome version
         val annotation_version // String, annotation version
 
@@ -61,7 +61,7 @@ process ctat_lr_fusion {
 
     input:
         tuple val(sample_id), path(full_length_reads)  // Path, location of input files
-        val ctat_lr_data_dir                           // Path, location of directory with required annotation files
+        path ctat_lr_data_dir                           // Path, location of directory with required annotation files
 
     output:
         path "*" // Remove after testing
