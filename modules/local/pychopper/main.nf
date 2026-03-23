@@ -2,7 +2,7 @@ process pychopper {
     tag "$sample"
 
     input:
-        tuple val(sample), path(reads) // Tuple, contains sample id and fastq file
+        tuple val(sample), path(reads, stageAs: "?/*") // Tuple, contains sample id and fastq file
         val primer_opts                // Val, either contains custom primers or a primer kit
         val backend                    // Val, string containing either edlib or phmm
         val extra_opts                 // Val, potential extra parameters given in config file

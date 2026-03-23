@@ -4,7 +4,7 @@ process nanoplot {
     label 'process_low_long'
 
     input:
-        tuple val(sample), path(reads) // Tuple, contains sample id and fastq file
+        tuple val(sample), path(reads, stageAs: "?/*") // Tuple, contains sample id and fastq file
         val extra_opts                 // Val, potential extra parameters given in config file
 
     output:

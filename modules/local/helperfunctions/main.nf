@@ -64,15 +64,36 @@ def readInputDirectory(input_dir) {
 // Function to create input channel for the workflow using given samplesheet and data directory
 def buildSampleFileChannel(sample_sheet_ch, input_dir) {
 
-    def sample_map_ch  = validateSampleSheet(sample_sheet_ch)
+    /*def sample_map_ch  = validateSampleSheet(sample_sheet_ch)
 
     // Create file channel from input directory
     def files_by_barcode = readInputDirectory(input_dir).groupTuple(by: 0)
+    files_by_barcode = files_by_barcode.map{ file -> [ file.simpleName.split('_')[0], file ] }.groupTuple()
+
+    
 
     return sample_map_ch
-        .combine(files_by_barcode, by: [0])
-        .map { _barcode, sample, files ->
-            tuple(sample, files)
+        .join(files_by_barcode) 
+        .map { barcode, sample, files -> 
+            // .flatten() ensures the list isn't [[f1, f2], [f3, f4]]
+            return [ sample, files.flatten() ] 
+        }
+
+    */
+    def sample_map_ch = validateSampleSheet(sample_sheet_ch)
+
+    // 1. Get the files. readInputDirectory returns [barcode, file]
+    // 2. groupTuple(by: 0) collects all files sharing the same barcode into a list
+    def files_by_barcode = readInputDirectory(input_dir).groupTuple(by: 0)
+
+    sample_map_ch.join(files_by_barcode).view { it -> "MATCHED: Barcode ${it[0]} -> Sample ${it[1]}" }
+
+    return sample_map_ch
+        .join(files_by_barcode)
+        .map { barcode, sample, files -> 
+            // Use .flatten() to ensure you don't have [[f1], [f2]]
+            // but rather [f1, f2]
+            return tuple(sample, files.flatten()) 
         }
 }
 
